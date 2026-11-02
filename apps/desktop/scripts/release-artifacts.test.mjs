@@ -5,15 +5,11 @@ import path from "node:path";
 import test from "node:test";
 import { parse, stringify } from "yaml";
 import { expectedFiles, hashFile, stageArtifacts, verifyArtifacts } from "./release-artifacts.mjs";
-import { refreshMacUpdateMetadata } from "./refresh-macos-update-metadata.mjs";
 
 const VERSION = "0.1.0-beta.34";
 const COMMIT = "a".repeat(40);
 
 function updateManifestName(platform) {
-  if (platform === "macos") {
-    return "latest-mac.yml";
-  }
   if (platform === "linux") {
     return "latest-linux.yml";
   }
@@ -21,9 +17,6 @@ function updateManifestName(platform) {
 }
 
 function primaryUpdateAsset(platform) {
-  if (platform === "macos") {
-    return `pi-gui-${VERSION}-arm64.zip`;
-  }
   if (platform === "linux") {
     return `pi-gui-${VERSION}-x86_64.AppImage`;
   }
@@ -31,9 +24,6 @@ function primaryUpdateAsset(platform) {
 }
 
 function updateAssets(platform) {
-  if (platform === "macos") {
-    return [`pi-gui-${VERSION}-arm64.zip`, `pi-gui-${VERSION}-arm64.dmg`];
-  }
   if (platform === "linux") {
     return [`pi-gui-${VERSION}-x86_64.AppImage`, `pi-gui_${VERSION}_amd64.deb`];
   }
@@ -89,7 +79,7 @@ test("stages immutable platform manifests and verifies the combined candidate", 
   const combined = path.join(root, "combined");
   await mkdir(combined);
 
-  for (const platform of ["macos", "linux", "windows"]) {
+  for (const platform of ["linux", "windows"]) {
     const staged = await stageFixture(root, platform);
     await cp(staged, combined, { recursive: true });
   }
@@ -102,7 +92,7 @@ test("stages immutable platform manifests and verifies the combined candidate", 
   });
   assert.deepEqual(
     manifests.map(({ platform }) => platform),
-    ["macos", "linux", "windows"],
+    ["linux", "windows"],
   );
 });
 
@@ -211,7 +201,7 @@ test("rejects undeclared files in the combined release candidate", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "pi-gui-release-extra-"));
   const combined = path.join(root, "combined");
   await mkdir(combined);
-  for (const platform of ["macos", "linux", "windows"]) {
+  for (const platform of ["linux", "windows"]) {
     await cp(await stageFixture(root, platform), combined, { recursive: true });
   }
   await writeFile(path.join(combined, "stale-installer.exe"), "stale\n", "utf8");
@@ -225,31 +215,4 @@ test("rejects undeclared files in the combined release candidate", async () => {
     }),
     /file set mismatch/,
   );
-});
-
-test("refreshes macOS metadata and blockmap from final DMG bytes", async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "pi-gui-release-final-dmg-"));
-  const source = await createFixture(root, "macos");
-  const manifestPath = path.join(source, "latest-mac.yml");
-  const manifest = parse(await readFile(manifestPath, "utf8"));
-  const dmgEntry = manifest.files.find(({ url }) => url.endsWith(".dmg"));
-  dmgEntry.size = 1;
-  dmgEntry.sha512 = "stale-before-stapling";
-  dmgEntry.blockMapSize = 1;
-  await writeFile(manifestPath, stringify(manifest), "utf8");
-
-  const refreshed = await refreshMacUpdateMetadata({ releaseDir: source, version: VERSION });
-  const finalManifest = parse(await readFile(manifestPath, "utf8"));
-  const finalDmg = finalManifest.files.find(({ url }) => url === refreshed.dmg);
-  assert.equal(finalDmg.size, refreshed.size);
-  assert.equal(finalDmg.sha512, refreshed.sha512);
-  assert.equal(finalDmg.blockMapSize, refreshed.blockMapSize);
-
-  await stageArtifacts({
-    platform: "macos",
-    version: VERSION,
-    commit: COMMIT,
-    inputDir: source,
-    outputDir: path.join(root, "staged"),
-  });
 });

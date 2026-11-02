@@ -2,7 +2,6 @@ import { CopyCommand } from "./components/copy-command";
 import { DownloadButton } from "./components/download-button";
 import { ThemedShot } from "./components/themed-shot";
 import {
-  BREW_INSTALL,
   GITHUB_URL,
   OG_IMAGE_PATH,
   PI_URL,
@@ -17,7 +16,7 @@ const softwareApplicationJsonLd = {
   "@type": "SoftwareApplication",
   name: SITE_NAME,
   applicationCategory: "DeveloperApplication",
-  operatingSystem: "macOS, Linux, Windows",
+  operatingSystem: "Linux, Windows",
   description: SITE_DESCRIPTION,
   url: SITE_URL,
   sameAs: [GITHUB_URL],
@@ -106,13 +105,6 @@ const features = [
 
 const installs = [
   {
-    platform: "macOS",
-    detail: "Apple Silicon. Signed and notarized.",
-    steps:
-      "Download the .dmg from GitHub Releases and drag pi-gui into Applications, or install with Homebrew:",
-    command: BREW_INSTALL,
-  },
-  {
     platform: "Linux",
     detail: "x64 AppImage or .deb.",
     steps: "Download the AppImage or the .deb package from GitHub Releases.",
@@ -149,7 +141,7 @@ const faqs = [
   },
   {
     q: "How do updates work?",
-    a: "pi-gui tells you when a new release is out. Homebrew installs update with brew upgrade --cask pi-gui; other installs update from GitHub Releases.",
+    a: "pi-gui tells you when a new release is out and updates from GitHub Releases.",
   },
 ] as const;
 
@@ -198,7 +190,7 @@ export default function Page() {
         <section className="hero">
           <div className="container">
             <a className="hero__badge" href={RELEASES_URL}>
-              Free and open source for macOS, Linux and Windows
+              Free and open source for Linux and Windows
               <span aria-hidden="true">→</span>
             </a>
             <h1>The desktop app for the pi coding agent</h1>
@@ -278,9 +270,8 @@ export default function Page() {
           <div className="container">
             <h2 className="section-title">Install pi-gui</h2>
             <p className="section-lede">
-              Download the latest build from <a href={RELEASES_URL}>GitHub Releases</a>, or install
-              with Homebrew on macOS. Then connect a provider under Settings, add a project folder
-              and start a thread.
+              Download the latest build from <a href={RELEASES_URL}>GitHub Releases</a>. Then
+              connect a provider under Settings, add a project folder and start a thread.
             </p>
             <div className="install__grid">
               {installs.map((item) => (

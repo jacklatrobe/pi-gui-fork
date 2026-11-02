@@ -184,7 +184,6 @@ test("every desktop spec has a known lane and lane commands cannot mix suites", 
     assert.ok(scripts[`test:e2e:${lane}`].includes(`apps/desktop/tests/${lane}`));
   }
   assert.match(scripts["test:e2e:core"], /PI_APP_TEST_LANE=core/);
-  assert.equal(scripts["test:e2e:ci:mac"], "pnpm run test:e2e:core");
   for (const [name, command] of Object.entries(scripts)) {
     const match = name.match(/^test:(core|live|native|prod):/);
     if (match) {

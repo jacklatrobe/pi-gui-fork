@@ -4,9 +4,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 /**
- * Compute the PATH pi-gui should use so npm / Homebrew / npm-global /
- * `~/.local/bin` binaries stay reachable when the app is launched from
- * Finder/Dock (which hands the process a minimal PATH).
+ * Compute the PATH pi-gui should use so npm / npm-global / `~/.local/bin`
+ * binaries stay reachable when the app is launched from a desktop launcher that
+ * hands the process a minimal PATH.
  *
  * This is POSIX-only. Windows resolves executables differently and uses a
  * different PATH separator, so on win32 the PATH is returned untouched — this
@@ -33,7 +33,6 @@ function augmentPosixPath(options = {}) {
   const homeDir = env.HOME;
   const localBin = homeDir ? `${homeDir}/.local/bin` : undefined;
   const extraBinPaths = [
-    "/opt/homebrew/bin",
     "/usr/local/bin",
     homeDir ? `${homeDir}/.npm-global/bin` : undefined,
     localBin && exists(localBin) ? localBin : undefined,

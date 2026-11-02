@@ -3,13 +3,12 @@
 import { useEffect, useState } from "react";
 import { RELEASES_URL } from "../site";
 
-type Platform = "macOS" | "Linux" | "Windows";
+type Platform = "Linux" | "Windows";
 
 function detectPlatform(): Platform | null {
   const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
   const hint = `${nav.userAgentData?.platform ?? ""} ${navigator.userAgent}`.toLowerCase();
   if (/iphone|ipad|android/.test(hint)) return null;
-  if (hint.includes("mac")) return "macOS";
   if (hint.includes("win")) return "Windows";
   if (hint.includes("linux")) return "Linux";
   return null;

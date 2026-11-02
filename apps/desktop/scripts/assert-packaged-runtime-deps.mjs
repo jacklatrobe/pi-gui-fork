@@ -1,6 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { constants, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
-import { access } from "node:fs/promises";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -92,17 +91,6 @@ const packagePlatform = (process.env.PI_APP_PACKAGE_PLATFORM ?? process.platform
   .toLowerCase();
 const releaseDir = path.resolve(desktopDir, process.env.PI_APP_TEST_RELEASE_DIR ?? "release");
 const asarPath = resolveAsarPath(releaseDir, packagePlatform);
-const notificationHelperPath =
-  packagePlatform === "darwin"
-    ? path.join(
-        releaseDir,
-        "mac-arm64",
-        "pi-gui.app",
-        "Contents",
-        "MacOS",
-        "pi-gui-notification-status-helper",
-      )
-    : undefined;
 const pnpmBinary = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const piCodingAgentPackageName = "@earendil-works/pi-coding-agent";
 const requiredPiCodingAgentVersion = "1.4.0";
@@ -174,10 +162,6 @@ if (!existsSync(asarPath)) {
   throw new Error(`Packaged app.asar not found at ${asarPath}. Run the packaging step first.`);
 }
 
-if (notificationHelperPath && !existsSync(notificationHelperPath)) {
-  throw new Error(`Packaged app is missing notification helper: ${notificationHelperPath}`);
-}
-
 const extractedDir = mkdtempSync(path.join(tmpdir(), "pi-gui-packaged-runtime-"));
 let cleanupError;
 try {
@@ -215,10 +199,6 @@ if (cleanupError) throw cleanupError;
 console.log(`Verified packaged runtime dependencies in ${asarPath}`);
 
 function resolveAsarPath(releaseDir, packagePlatform) {
-  if (packagePlatform === "darwin") {
-    return path.join(releaseDir, "mac-arm64", "pi-gui.app", "Contents", "Resources", "app.asar");
-  }
-
   if (packagePlatform === "linux") {
     const unpackedAsarPath = readdirSync(releaseDir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && /^linux(?:-[\w]+)?-unpacked$/.test(entry.name))
@@ -360,14 +340,6 @@ async function verifyNativeNodePty(asarPath) {
   if (!existsSync(nodePtyDir) || !hasFileWithExtension(nodePtyDir, ".node")) {
     throw new Error(`Packaged app is missing unpacked node-pty native module under ${nodePtyDir}`);
   }
-  if (packagePlatform !== "darwin") {
-    return;
-  }
-  const helperPath = findFileNamed(nodePtyDir, "spawn-helper");
-  if (!helperPath) {
-    throw new Error(`Packaged app is missing unpacked node-pty spawn-helper under ${nodePtyDir}`);
-  }
-  await access(helperPath, constants.X_OK);
 }
 
 function hasFileWithExtension(directoryPath, extension) {

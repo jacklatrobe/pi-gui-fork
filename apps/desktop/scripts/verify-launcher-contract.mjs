@@ -28,34 +28,28 @@ function verifyPathContract() {
   // POSIX with HOME set prepends the missing bin dirs using the POSIX delimiter,
   // including ~/.local/bin when it exists.
   const posix = augmentPosixPath({
-    platform: "darwin",
-    env: { PATH: "/usr/bin", HOME: "/Users/pi" },
+    platform: "linux",
+    env: { PATH: "/usr/bin", HOME: "/home/pi" },
     delimiter: POSIX_DELIMITER,
-    exists: (dir) => dir === "/Users/pi/.local/bin",
+    exists: (dir) => dir === "/home/pi/.local/bin",
   });
   assert.equal(posix.changed, true, "posix PATH should be augmented");
   assert.deepEqual(
     posix.path.split(POSIX_DELIMITER),
-    [
-      "/opt/homebrew/bin",
-      "/usr/local/bin",
-      "/Users/pi/.npm-global/bin",
-      "/Users/pi/.local/bin",
-      "/usr/bin",
-    ],
+    ["/usr/local/bin", "/home/pi/.npm-global/bin", "/home/pi/.local/bin", "/usr/bin"],
     "posix PATH must prepend missing bin dirs in order",
   );
 
   // ~/.local/bin is skipped when the directory does not exist.
   const noLocalBin = augmentPosixPath({
-    platform: "darwin",
-    env: { PATH: "/usr/bin", HOME: "/Users/pi" },
+    platform: "linux",
+    env: { PATH: "/usr/bin", HOME: "/home/pi" },
     delimiter: POSIX_DELIMITER,
     exists: () => false,
   });
   assert.deepEqual(
     noLocalBin.path.split(POSIX_DELIMITER),
-    ["/opt/homebrew/bin", "/usr/local/bin", "/Users/pi/.npm-global/bin", "/usr/bin"],
+    ["/usr/local/bin", "/home/pi/.npm-global/bin", "/usr/bin"],
     "missing ~/.local/bin must not be added",
   );
 
@@ -67,18 +61,14 @@ function verifyPathContract() {
     exists: () => true,
   });
   assert.ok(!noHome.path.includes("undefined"), "must not inject `undefined/...` home dirs");
-  assert.deepEqual(noHome.path.split(POSIX_DELIMITER), [
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-    "/usr/bin",
-  ]);
+  assert.deepEqual(noHome.path.split(POSIX_DELIMITER), ["/usr/local/bin", "/usr/bin"]);
 
   // Idempotent: entries already present are not duplicated.
   const already = augmentPosixPath({
-    platform: "darwin",
+    platform: "linux",
     env: {
-      PATH: "/usr/bin:/Users/pi/.local/bin:/opt/homebrew/bin:/usr/local/bin:/Users/pi/.npm-global/bin",
-      HOME: "/Users/pi",
+      PATH: "/usr/bin:/home/pi/.local/bin:/usr/local/bin:/home/pi/.npm-global/bin",
+      HOME: "/home/pi",
     },
     delimiter: POSIX_DELIMITER,
     exists: () => true,

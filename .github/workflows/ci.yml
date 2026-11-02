@@ -173,9 +173,7 @@ jobs:
 
   desktop-core-shards:
     name: Desktop Core (${{ matrix.shard }}/4)
-    # PRs run Core on Linux, which doesn't queue behind the account's few macOS slots.
-    # Pushes to main keep macOS coverage.
-    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'macos-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -195,14 +193,7 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Desktop Core (macOS)
-        if: ${{ runner.os == 'macOS' }}
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ github.workspace }}/apps/desktop/test-results/core-report.json
-        run: pnpm --filter @pi-gui/desktop run test:e2e:ci:mac --shard=${{ matrix.shard }}/4 --reporter=line,json
-
       - name: Install Linux display dependencies
-        if: ${{ runner.os == 'Linux' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb openbox libnotify4
@@ -211,8 +202,7 @@ jobs:
           # sparse address space is streamed out, so write plain core files, which ulimit -c 0 blocks.
           sudo sysctl -w kernel.core_pattern=core
 
-      - name: Desktop Core (Linux)
-        if: ${{ runner.os == 'Linux' }}
+      - name: Desktop Core
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ github.workspace }}/apps/desktop/test-results/core-report.json
           PI_APP_TEST_WORKERS: "2"

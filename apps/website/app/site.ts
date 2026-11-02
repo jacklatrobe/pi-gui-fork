@@ -8,10 +8,9 @@ export const OG_IMAGE_HEIGHT = 630;
 export const GITHUB_URL = "https://github.com/minghinmatthewlam/pi-gui";
 export const RELEASES_URL = `${GITHUB_URL}/releases`;
 export const PI_URL = "https://github.com/earendil-works/pi";
-export const BREW_INSTALL = "brew install --cask minghinmatthewlam/tap/pi-gui";
 
 export const SITE_TITLE = "pi-gui: the desktop app for the pi coding agent";
 export const SITE_DESCRIPTION =
-  "pi-gui is a free, open source desktop app for the pi coding agent. Run agents in parallel threads and git worktrees, review every change, and use the terminal and files in one window. Install it from GitHub Releases on macOS, Linux and Windows, or Homebrew on macOS.";
+  "pi-gui is a free, open source desktop app for the pi coding agent. Run agents in parallel threads and git worktrees, review every change, and use the terminal and files in one window. Install it from GitHub Releases on Linux and Windows.";
 export const SITE_SOCIAL_DESCRIPTION =
-  "Run the pi coding agent in parallel threads, review every change, and ship from one window. macOS, Linux and Windows.";
+  "Run the pi coding agent in parallel threads, review every change, and ship from one window. Linux and Windows.";

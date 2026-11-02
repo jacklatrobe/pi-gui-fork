@@ -4,7 +4,7 @@ The desktop app for the [pi](https://github.com/earendil-works/pi) coding agent.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/minghinmatthewlam/pi-gui?include_prereleases&label=release)](https://github.com/minghinmatthewlam/pi-gui/releases)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](#install)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)](#install)
 
 Run agents in parallel threads, each in its own git worktree if you want one. Review every
 change, run the tests in a real terminal, and ship without leaving the window. pi-gui is a
@@ -53,17 +53,17 @@ the review tab, your worktrees, and tabs from desktop extensions. Each task keep
   <img src="./apps/website/public/media/palette-light.webp" alt="The command palette listing recent chats and actions" width="720">
 </picture>
 
-| Shortcut (macOS; use Ctrl on Linux and Windows)    | Does                                  |
-| -------------------------------------------------- | ------------------------------------- |
-| <kbd>⌘</kbd> <kbd>K</kbd>                          | Search chats, workspaces and actions  |
-| <kbd>⌘</kbd> <kbd>P</kbd>                          | Open any file in the current checkout |
-| <kbd>Ctrl</kbd> <kbd>Tab</kbd>                     | Switch between recent threads         |
-| <kbd>⌘</kbd> <kbd>1</kbd> to <kbd>9</kbd>          | Jump to a thread in the sidebar       |
-| <kbd>⌘</kbd> <kbd>J</kbd>                          | Toggle the terminal                   |
-| <kbd>⌘</kbd> <kbd>R</kbd>                          | Toggle the Review tab                 |
-| <kbd>⌘</kbd> <kbd>⌥</kbd> <kbd>B</kbd>             | Show or hide the workbench            |
-| <kbd>Enter</kbd> while a run is going              | Queue a follow-up                     |
-| <kbd>⌘</kbd> <kbd>Enter</kbd> while a run is going | Steer the current run                 |
+| Shortcut                                              | Does                                  |
+| ----------------------------------------------------- | ------------------------------------- |
+| <kbd>Ctrl</kbd> <kbd>K</kbd>                          | Search chats, workspaces and actions  |
+| <kbd>Ctrl</kbd> <kbd>P</kbd>                          | Open any file in the current checkout |
+| <kbd>Ctrl</kbd> <kbd>Tab</kbd>                        | Switch between recent threads         |
+| <kbd>Ctrl</kbd> <kbd>1</kbd> to <kbd>9</kbd>          | Jump to a thread in the sidebar       |
+| <kbd>Ctrl</kbd> <kbd>J</kbd>                          | Toggle the terminal                   |
+| <kbd>Ctrl</kbd> <kbd>R</kbd>                          | Toggle the Review tab                 |
+| <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>B</kbd>           | Show or hide the workbench            |
+| <kbd>Enter</kbd> while a run is going                 | Queue a follow-up                     |
+| <kbd>Ctrl</kbd> <kbd>Enter</kbd> while a run is going | Steer the current run                 |
 
 ### And the rest
 
@@ -88,30 +88,16 @@ the review tab, your worktrees, and tabs from desktop extensions. Each task keep
 
 ## Install
 
-pi-gui runs on macOS (Apple Silicon), Linux (x64) and Windows (x64).
+pi-gui runs on Linux (x64) and Windows (x64).
 
-Download the latest `.dmg` (macOS), `.AppImage` or `.deb` (Linux), or `.exe` (Windows) from the
+Download the latest `.AppImage` or `.deb` (Linux), or `.exe` (Windows) from the
 [Releases page](https://github.com/minghinmatthewlam/pi-gui/releases).
 
-- **macOS:** drag `pi-gui.app` into Applications. Releases are signed and notarized.
 - **Linux:** make the AppImage executable and run it, or install the `.deb`.
 - **Windows:** run the setup `.exe`, or use the portable `.exe`. Builds are not code-signed
   yet, so SmartScreen may ask you to confirm.
 
-On macOS you can also use Homebrew:
-
-```bash
-brew tap minghinmatthewlam/tap
-brew trust minghinmatthewlam/tap
-brew install --cask pi-gui
-```
-
-Homebrew refuses to load casks from untrusted third-party taps, so the
-`brew trust` step is required on first install.
-
-Update with `brew upgrade --cask pi-gui`. A Homebrew upgrade may ask you to
-re-confirm macOS permissions or Dock placement. Other installs tell you when a new release is
-out and update from the Releases page.
+Installs tell you when a new release is out and update from the Releases page.
 
 Building from source is for contributors; see [Development](#development).
 

@@ -121,11 +121,6 @@ function validateCiWorkflow(workflow) {
 }
 
 function validateBuilderConfig(config, desktopPackage, afterRemoveSource) {
-  assert(config.mac?.notarize === true, "electron-builder must notarize the macOS app");
-  assert(
-    config.dmg?.sign === true,
-    "DMG must be signed for Gatekeeper primary-signature verification",
-  );
   assert(
     config.win?.signAndEditExecutable === true,
     "Windows packaging must preserve executable icon and version metadata",
@@ -246,7 +241,7 @@ function validateBuildJob(job, platform) {
   );
 }
 
-function validateWorkflow(workflow, finalizerSource, linuxVerifierSource, windowsVerifierSource) {
+function validateWorkflow(workflow, linuxVerifierSource, windowsVerifierSource) {
   const jobs = workflow.jobs ?? {};
   const releasePreflight = jobs["release-preflight"];
   const versionCheck = stepNamed(releasePreflight, "Verify release tag and product versions");
@@ -255,7 +250,7 @@ function validateWorkflow(workflow, finalizerSource, linuxVerifierSource, window
       runText(versionCheck).includes('--tag "$GITHUB_REF_NAME"'),
     "Release preflight must require the exact tag across product package versions",
   );
-  for (const jobName of ["build-macos", "build-linux", "build-windows"]) {
+  for (const jobName of ["build-linux", "build-windows"]) {
     assert(
       jobs[jobName]?.needs === "release-preflight",
       `${jobName} must wait for release version preflight`,
@@ -274,37 +269,8 @@ function validateWorkflow(workflow, finalizerSource, linuxVerifierSource, window
   );
   assert(workflow.permissions?.contents === "read", "Release workflow must default to read access");
 
-  validateBuildJob(jobs["build-macos"], "macOS");
   validateBuildJob(jobs["build-linux"], "Linux");
   validateBuildJob(jobs["build-windows"], "Windows");
-
-  const macFinalize = stepNamed(jobs["build-macos"], "Notarize and verify final macOS artifacts");
-  const macRefresh = stepNamed(jobs["build-macos"], "Refresh update metadata from final DMG");
-  const macStage = stepNamed(jobs["build-macos"], "Stage validated macOS artifacts");
-  assert(
-    runText(macFinalize).includes("finalize-macos-release.sh"),
-    "macOS build must run final DMG notarization and trust validation",
-  );
-  assert(macFinalize["continue-on-error"] !== true, "Final macOS validation must be fatal");
-  for (const command of [
-    "set -euo pipefail",
-    "notarytool submit",
-    "stapler staple",
-    "stapler validate",
-    "spctl --assess --type open",
-  ]) {
-    assert(finalizerSource.includes(command), `macOS finalizer must contain: ${command}`);
-  }
-  assert(
-    runText(macRefresh).includes("refresh-macos-update-metadata.mjs"),
-    "macOS build must regenerate update metadata from the stapled DMG",
-  );
-  assert(
-    jobs["build-macos"].steps.indexOf(macFinalize) <
-      jobs["build-macos"].steps.indexOf(macRefresh) &&
-      jobs["build-macos"].steps.indexOf(macRefresh) < jobs["build-macos"].steps.indexOf(macStage),
-    "macOS metadata refresh must run after stapling and before artifact staging",
-  );
 
   const linuxJob = jobs["build-linux"];
   const linuxPackage = stepNamed(linuxJob, "Package Linux AppImage and deb");
@@ -397,8 +363,7 @@ function validateWorkflow(workflow, finalizerSource, linuxVerifierSource, window
 
   const stageDraft = jobs["stage-draft"];
   assert(
-    JSON.stringify(stageDraft.needs) ===
-      JSON.stringify(["build-macos", "build-linux", "build-windows"]),
+    JSON.stringify(stageDraft.needs) === JSON.stringify(["build-linux", "build-windows"]),
     "Draft staging must wait for every platform candidate",
   );
   assert(
@@ -431,7 +396,6 @@ function validateWorkflow(workflow, finalizerSource, linuxVerifierSource, window
   );
 
   const draftVerifiers = [
-    ["verify-draft-macos", "Verify draft macOS trust"],
     ["verify-draft-linux", "Verify draft Linux packages"],
     ["verify-draft-windows", "Verify draft Windows packages"],
   ];
@@ -471,7 +435,7 @@ function validateWorkflow(workflow, finalizerSource, linuxVerifierSource, window
   const publish = jobs.publish;
   assert(
     JSON.stringify(publish.needs) ===
-      JSON.stringify(["verify-draft-macos", "verify-draft-linux", "verify-draft-windows"]),
+      JSON.stringify(["verify-draft-linux", "verify-draft-windows"]),
     "Final publication must wait for all native draft trust checks",
   );
   assert(
@@ -534,7 +498,6 @@ function validateWorkflow(workflow, finalizerSource, linuxVerifierSource, window
   );
 
   const publishedVerifiers = [
-    ["verify-published-macos", "Verify published macOS trust"],
     ["verify-published-linux", "Verify published Linux packages"],
     ["verify-published-windows", "Verify published Windows packages"],
   ];
@@ -566,23 +529,12 @@ function validateWorkflow(workflow, finalizerSource, linuxVerifierSource, window
     ).includes("-SmokePackages"),
     "Published Windows packages must be installed and extracted",
   );
-
-  assert(
-    JSON.stringify(jobs["sync-homebrew"]?.needs) ===
-      JSON.stringify([
-        "verify-published-macos",
-        "verify-published-linux",
-        "verify-published-windows",
-      ]),
-    "Homebrew sync must wait for every post-publication native verification",
-  );
 }
 
 const [
   builderConfig,
   ciWorkflow,
   workflow,
-  finalizerSource,
   linuxVerifierSource,
   windowsVerifierSource,
   desktopPackageSource,
@@ -594,7 +546,6 @@ const [
   parseYaml("apps/desktop/electron-builder.yml"),
   parseYaml(".github/workflows/ci.yml"),
   parseYaml(".github/workflows/release.yml"),
-  readFile(path.join(scriptDir, "finalize-macos-release.sh"), "utf8"),
   readFile(path.join(scriptDir, "verify-linux-release.sh"), "utf8"),
   readFile(path.join(scriptDir, "verify-windows-release.ps1"), "utf8"),
   readFile(path.join(scriptDir, "..", "package.json"), "utf8"),
@@ -608,6 +559,6 @@ await assertWorkflowActionPolicy(repoDir);
 await validateConfiguration(builderConfig, new DebugLogger(false));
 validateBuilderConfig(builderConfig, JSON.parse(desktopPackageSource), afterRemoveSource);
 validateCiWorkflow(ciWorkflow);
-validateWorkflow(workflow, finalizerSource, linuxVerifierSource, windowsVerifierSource);
+validateWorkflow(workflow, linuxVerifierSource, windowsVerifierSource);
 validateGithubDownloadRetry(retrySource, packageWindowsSource, runElectronBuilderSource);
 console.log("Release package and workflow configuration are valid.");

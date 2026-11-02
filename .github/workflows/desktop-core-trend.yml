@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   desktop-core-trend:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -30,11 +30,19 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Install Linux display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb openbox libnotify4
+          sudo sysctl -w kernel.core_pattern=core
+
       - name: Run desktop core once
         env:
           PI_APP_TEST_MODE: background
           PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ github.workspace }}/apps/desktop/test-results/desktop-core-trend.json
         run: >-
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24"
+          sh -c 'openbox >/dev/null 2>&1 & exec "$@"' sh
           pnpm --filter @pi-gui/desktop run test:e2e:core
           --workers=1
           --retries=0
