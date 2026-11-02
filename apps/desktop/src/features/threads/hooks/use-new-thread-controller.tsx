@@ -11,6 +11,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { ExtensionFlagValues } from "@pi-gui/session-driver";
+import type { AgentIdentityRecord } from "../../../../contracts/agents";
 import {
   type AppView,
   type ComposerAttachment,
@@ -69,6 +70,9 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
   const [provider, setProvider] = useState<string | undefined>();
   const [modelId, setModelId] = useState<string | undefined>();
   const [thinkingLevel, setThinkingLevel] = useState<string | undefined>();
+  // The agent identity this new thread should start as, and the workspace's choices.
+  const [agentName, setAgentName] = useState<string | undefined>();
+  const [agentIdentities, setAgentIdentities] = useState<readonly AgentIdentityRecord[]>([]);
   // Flag edits on this surface, laid over the workspace's remembered defaults.
   const [extensionFlagEdits, setExtensionFlagEdits] = useState<ExtensionFlagValues>({});
   const [composerError, setComposerError] = useState<string | undefined>();
@@ -105,6 +109,40 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
     provider: resolvedProvider,
     modelId: resolvedModelId,
   });
+
+  const workspaceId = workspace?.id;
+  useEffect(() => {
+    if (!api || !workspaceId) {
+      setAgentIdentities([]);
+      return undefined;
+    }
+    let cancelled = false;
+    void api
+      .listAgentIdentities(workspaceId)
+      .then((agents) => {
+        if (!cancelled) setAgentIdentities(agents);
+      })
+      .catch((error: unknown) => {
+        console.error("[renderer] listAgentIdentities failed", error);
+        if (!cancelled) setAgentIdentities([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, workspaceId]);
+
+  // A workspace switch can remove the chosen agent; never send a name that is gone.
+  useEffect(() => {
+    if (agentName && !agentIdentities.some((agent) => agent.name === agentName)) {
+      setAgentName(undefined);
+    }
+  }, [agentIdentities, agentName]);
+
+  // One stable object so the New thread surface takes a single prop for the whole choice.
+  const agentIdentity = useMemo(
+    () => ({ name: agentName, agents: agentIdentities, onSelect: setAgentName }),
+    [agentName, agentIdentities],
+  );
 
   const focusComposer = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -180,6 +218,7 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
       setProvider(undefined);
       setModelId(undefined);
       setThinkingLevel(undefined);
+      setAgentName(undefined);
       setExtensionFlagEdits({});
       setComposerError(undefined);
     },
@@ -211,6 +250,7 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
     setProvider(undefined);
     setModelId(undefined);
     setThinkingLevel(undefined);
+    setAgentName(undefined);
     setExtensionFlagEdits({});
     setComposerError(undefined);
   }, []);
@@ -312,6 +352,7 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
       provider: resolvedProvider,
       modelId: resolvedModelId,
       thinkingLevel: resolvedThinkingLevel,
+      ...(agentName ? { agentName } : {}),
       ...(Object.keys(extensionFlags).length > 0 ? { extensionFlags } : {}),
     };
     startingGenerationRef.current = generation;
@@ -325,6 +366,7 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
         setProvider(undefined);
         setModelId(undefined);
         setThinkingLevel(undefined);
+        setAgentName(undefined);
         setExtensionFlagEdits({});
         setEnvironment("local");
       })
@@ -337,6 +379,7 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
         }
       });
   }, [
+    agentName,
     api,
     attachments,
     environment,
@@ -482,6 +525,7 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
       resolvedProvider,
       resolvedModelId,
       resolvedThinkingLevel,
+      agentIdentity,
       extensionFlags,
       setExtensionFlag,
       modelOnboarding,
@@ -516,6 +560,7 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
       resolvedProvider,
       resolvedModelId,
       resolvedThinkingLevel,
+      agentIdentity,
       extensionFlags,
       setExtensionFlag,
       modelOnboarding,

@@ -239,6 +239,7 @@ export function expectStartThreadInput(value: unknown): StartThreadInput {
   return {
     rootWorkspaceId: expectNonEmptyString(record.rootWorkspaceId, "input.rootWorkspaceId"),
     environment,
+    agentName: expectOptionalNonEmptyString(record.agentName, "input.agentName"),
     prompt: expectOptionalString(record.prompt, "input.prompt"),
     attachments:
       record.attachments === undefined

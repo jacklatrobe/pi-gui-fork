@@ -723,6 +723,17 @@
   min-width: 0;
 }
 
+.session-row__agent {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-raised, rgba(127, 127, 127, 0.18));
+  color: var(--muted-soft);
+  font-size: 10px;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+}
+
 .session-row__context {
   font-size: 11px;
   color: var(--muted-soft);

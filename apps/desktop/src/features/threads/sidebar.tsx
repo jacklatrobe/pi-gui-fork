@@ -1700,6 +1700,11 @@ const ThreadSessionRow = forwardRef<HTMLDivElement, ThreadSessionRowProps>(
             <span className="session-row__body">
               <span className="session-row__title-line">
                 <span className="session-row__title">{thread.session.title}</span>
+                {thread.session.agentName ? (
+                  <span className="session-row__agent" title={`Agent: ${thread.session.agentName}`}>
+                    {thread.session.agentName}
+                  </span>
+                ) : null}
               </span>
               {showContext ? (
                 <span className="session-row__context">{thread.contextLabel}</span>

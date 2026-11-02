@@ -97,6 +97,7 @@ apps/desktop/
     windows/             per-window views and action serialization
     ipc/                 validation and request routing
     conversation/        session commands, drafts, transcript, visibility
+    agents/              agent-identity discovery from pi-subagents markdown files
     workspace/           workspace, session, and worktree use cases
     orchestration/       child-thread policy and supervision
     scheduled-tasks/     local schedules, fire, and agent tools

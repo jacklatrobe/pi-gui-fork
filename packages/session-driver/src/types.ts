@@ -50,6 +50,8 @@ export interface SessionSnapshot {
   readonly archivedAt?: Timestamp;
   readonly preview?: string;
   readonly config?: SessionConfig;
+  /** Display name of the agent identity this thread started with, when it has one. */
+  readonly agentName?: string;
   readonly runningRunId?: RunId;
   readonly queuedMessages?: readonly SessionQueuedMessage[];
   readonly usage?: SessionUsageSnapshot;
@@ -150,6 +152,26 @@ export interface CreateSessionOptions {
   readonly initialThinkingLevel?: string;
   /** Values for flags the session's extensions registered, applied when pi loads them. */
   readonly extensionFlagValues?: ExtensionFlagValues;
+  /** Agent identity applied to the new thread, when the caller chose one. */
+  readonly agent?: SessionAgentIdentity;
+}
+
+/**
+ * A pi-subagents-style agent definition, resolved by the host and applied by the driver.
+ *
+ * The definition only shapes how the thread starts: the system prompt is appended to
+ * pi's own prompt, a tool allowlist replaces pi's default tool set, and model or
+ * thinking are fallbacks for a thread that did not choose its own.
+ */
+export interface SessionAgentIdentity {
+  readonly name: string;
+  /** Body of the agent markdown file, appended to the session's system prompt. */
+  readonly systemPrompt?: string;
+  /** Tool allowlist from the agent's frontmatter; omitted keeps pi's default tools. */
+  readonly tools?: readonly string[];
+  readonly provider?: string;
+  readonly modelId?: string;
+  readonly thinkingLevel?: string;
 }
 
 /** Extension flag values by flag name, as `pi --name` (boolean) or `pi --name value` (string). */
@@ -175,6 +197,8 @@ export interface ForkSessionOptions {
   readonly title?: string;
   /** Flag values for the fork's pi session, normally the ones the source started with. */
   readonly extensionFlagValues?: ExtensionFlagValues;
+  /** Agent identity for the fork, normally the source thread's. */
+  readonly agent?: SessionAgentIdentity;
 }
 
 export interface ForkSessionResult {

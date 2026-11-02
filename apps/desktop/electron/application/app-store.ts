@@ -14,6 +14,11 @@ import {
   type PiSdkDriverConfig,
   SessionLeasedError,
 } from "@pi-gui/pi-sdk-driver";
+import {
+  listAgentIdentities as readAgentIdentities,
+  resolveAgentIdentity as resolveAgentIdentityDefinition,
+  type AgentIdentityRecord,
+} from "../agents/agent-identity-catalog";
 import type { SessionCatalogEntry } from "@pi-gui/catalogs";
 import type {
   NavigateSessionTreeOptions,
@@ -23,6 +28,7 @@ import type {
 import type {
   CreateSessionOptions,
   HostUiResponse,
+  SessionAgentIdentity,
   SessionConfig,
   SessionUsageSnapshot,
   SessionDriverEvent,
@@ -476,6 +482,7 @@ export class DesktopAppStore {
       clearPendingAutoTitle: (sessionRef) => this.clearPendingAutoTitle(sessionRef),
       updateSessionConfig: (sessionRef, config) => this.updateSessionConfig(sessionRef, config),
       buildCreateSessionOptions: (workspaceId) => this.buildCreateSessionOptions(workspaceId),
+      resolveAgentIdentity: (workspaceId, name) => this.resolveAgentIdentity(workspaceId, name),
       resolveExtensionFlags: (workspaceId, requested) =>
         this.resolveExtensionFlags(workspaceId, requested),
       extensionFlagsForSession: (sessionRef) =>
@@ -517,6 +524,8 @@ export class DesktopAppStore {
       subscribeToSessionEvents: (listener) => this.subscribeToSessionEvents(listener),
       updateSessionConfig: (sessionRef, config) => this.updateSessionConfig(sessionRef, config),
       buildCreateSessionOptions: (workspaceId) => this.buildCreateSessionOptions(workspaceId),
+      resolveAgentIdentity: (workspaceId, name) => this.resolveAgentIdentity(workspaceId, name),
+      listAgentIdentities: (workspaceId) => this.listAgentIdentities(workspaceId),
       getQueuedComposerMessages: (sessionRef) => this.getQueuedComposerMessages(sessionRef),
       seedSession: (snapshot) => {
         const key = sessionKey(snapshot.ref);
@@ -919,6 +928,57 @@ export class DesktopAppStore {
     return this.state.workspaces;
   }
 
+  /** The agent identities this workspace can start a thread as, from pi-subagents' agent files. */
+  async listAgentIdentities(workspaceId: string): Promise<readonly AgentIdentityRecord[]> {
+    const workspacePath = this.getWorkspacePath(workspaceId);
+    if (!workspacePath) {
+      return [];
+    }
+    return readAgentIdentities(await this.agentIdentityOptions(workspacePath));
+  }
+
+  /** The resolved definition for a chosen identity, or undefined when it no longer exists. */
+  async resolveAgentIdentity(
+    workspaceId: string,
+    name: string,
+  ): Promise<SessionAgentIdentity | undefined> {
+    const workspacePath = this.getWorkspacePath(workspaceId);
+    if (!workspacePath) {
+      return undefined;
+    }
+    const definition = await resolveAgentIdentityDefinition(
+      await this.agentIdentityOptions(workspacePath),
+      name,
+    );
+    if (!definition) {
+      return undefined;
+    }
+    return {
+      name: definition.name,
+      ...(definition.systemPrompt ? { systemPrompt: definition.systemPrompt } : {}),
+      ...(definition.tools ? { tools: [...definition.tools] } : {}),
+      ...(definition.provider ? { provider: definition.provider } : {}),
+      ...(definition.modelId ? { modelId: definition.modelId } : {}),
+      ...(definition.thinkingLevel ? { thinkingLevel: definition.thinkingLevel } : {}),
+    };
+  }
+
+  private async agentIdentityOptions(workspacePath: string): Promise<{
+    readonly agentDir: string;
+    readonly workspacePath: string;
+    readonly settings: readonly Record<string, unknown>[];
+  }> {
+    const [globalSettings, projectSettings] = await Promise.all([
+      readJsonRecordFile(resolveGlobalSettingsPath()),
+      readProjectModelSettingsFile(workspacePath),
+    ]);
+    return {
+      agentDir: this.driver.agentDirectory,
+      workspacePath,
+      settings: [globalSettings, projectSettings],
+    };
+  }
+
   getSkillFilePath(workspaceId: string, filePath: string): string | undefined {
     return this.runtimeByWorkspace.get(workspaceId)?.skills.find((s) => s.filePath === filePath)
       ?.filePath;
@@ -1265,10 +1325,28 @@ export class DesktopAppStore {
 
   async createChildThreadToolResult(
     parentRef: SessionRef,
-    input: { readonly prompt: string; readonly toolCallId: string },
+    input: { readonly prompt: string; readonly toolCallId: string; readonly agentName?: string },
   ) {
     await this.initialize();
     return this.orchestrationOwner.createChildThreadToolResult(parentRef, input);
+  }
+
+  async listAgentsToolResult(parentRef: SessionRef) {
+    await this.initialize();
+    return this.orchestrationOwner.listAgentsToolResult(parentRef);
+  }
+
+  async subagentToolResult(
+    parentRef: SessionRef,
+    input: {
+      readonly agent?: string;
+      readonly task: string;
+      readonly foreground: boolean;
+      readonly toolCallId: string;
+    },
+  ) {
+    await this.initialize();
+    return this.orchestrationOwner.subagentToolResult(parentRef, input);
   }
 
   listThreadsToolResult(parentRef: SessionRef, workspace?: string) {
@@ -4980,6 +5058,19 @@ function resolveGlobalSettingsPath(): string {
       : override
     : join(homedir(), ".pi", "agent");
   return join(agentDir, "settings.json");
+}
+
+/** Parse a settings file into a record; a missing or malformed file contributes nothing. */
+async function readJsonRecordFile(path: string): Promise<Record<string, unknown>> {
+  try {
+    const raw = await readFile(path, "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 async function readProjectModelSettingsFile(

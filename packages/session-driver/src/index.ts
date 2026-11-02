@@ -18,6 +18,7 @@ export type {
   RunCompletedEvent,
   RunFailedEvent,
   RunId,
+  SessionAgentIdentity,
   SessionAttachment,
   SessionClosedEvent,
   SessionConfig,
@@ -88,6 +89,7 @@ export type {
 } from "./transcript.js";
 
 export {
+  AGENT_IDENTITY_CUSTOM_TYPE,
   EXTENSION_CARD_CUSTOM_TYPE,
   EXTENSION_PIN_CUSTOM_TYPE,
   isCardEntryItem,

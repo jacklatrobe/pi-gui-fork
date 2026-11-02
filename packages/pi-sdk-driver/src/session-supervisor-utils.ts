@@ -26,6 +26,7 @@ import type {
   WorkspaceRef,
 } from "@pi-gui/session-driver";
 import {
+  AGENT_IDENTITY_CUSTOM_TYPE,
   EXTENSION_CARD_CUSTOM_TYPE,
   EXTENSION_PIN_CUSTOM_TYPE,
   parseExtensionAction,
@@ -44,6 +45,8 @@ export interface SnapshotSource {
   readonly archivedAt: string | undefined;
   readonly preview: string | undefined;
   readonly config: SessionConfig | undefined;
+  /** Display name of the thread's agent identity, when it started with one. */
+  readonly agentName?: string | undefined;
   readonly runningRunId: string | undefined;
   readonly queuedMessages: readonly SessionQueuedMessage[];
   readonly usage?: SessionUsageSnapshot | undefined;
@@ -131,6 +134,7 @@ export function buildSnapshot(source: SnapshotSource): SessionSnapshot {
     ...(source.archivedAt !== undefined ? { archivedAt: source.archivedAt } : {}),
     ...(source.preview !== undefined ? { preview: source.preview } : {}),
     ...(source.config ? { config: source.config } : {}),
+    ...(source.agentName !== undefined ? { agentName: source.agentName } : {}),
     ...(source.runningRunId !== undefined ? { runningRunId: source.runningRunId } : {}),
     ...(source.usage ? { usage: source.usage } : {}),
     ...(outcome ? { lastRunOutcome: outcome } : {}),
@@ -506,6 +510,21 @@ function displaySourcesFromSession(
       message: { ...message, id: entry.id },
     }));
   });
+}
+
+/**
+ * The thread's agent identity as pi-gui wrote it into the session, newest write winning.
+ * A malformed write is ignored so a damaged entry cannot name a thread wrongly.
+ */
+export function agentNameFromBranch(entries: readonly SessionEntry[]): string | undefined {
+  let name: string | undefined;
+  for (const entry of entries) {
+    if (entry.type !== "custom" || entry.customType !== AGENT_IDENTITY_CUSTOM_TYPE) continue;
+    const data = (entry as Partial<CustomEntry>).data;
+    const candidate = isRecord(data) && typeof data.name === "string" ? data.name.trim() : "";
+    if (candidate) name = candidate;
+  }
+  return name;
 }
 
 export function isExtensionCardEntry(entry: { readonly type: string }): entry is CustomEntry {

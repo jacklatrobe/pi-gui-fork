@@ -77,7 +77,11 @@ the review tab, your worktrees, and tabs from desktop extensions. Each task keep
   worktree, and move around the session tree with `/tree`.
 - **Composer.** `@`-mention files, and paste or drop images into the prompt.
 - **Threads that run threads.** An agent can start, read and message other threads, which
-  show up in the sidebar like any other.
+  show up in the sidebar like any other. Delegation goes through pi-gui, so every subagent
+  is a visible thread.
+- **Agent identities.** Start a thread as a pi-subagents-style agent (scout, worker,
+  reviewer, or your own markdown agents), chosen by you in New thread or by an agent when
+  it delegates.
 - **Notifications.** Get told when a background thread finishes, fails or needs you.
 - **Themes.** Light and dark, plus presets like Catppuccin, Tokyo Night, Nord, Dracula,
   Gruvbox and GitHub.

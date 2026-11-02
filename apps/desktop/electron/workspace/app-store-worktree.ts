@@ -134,6 +134,11 @@ export async function startThread(
 
     const prompt = input.prompt?.trim() ?? "";
     const attachments = input.attachments ?? [];
+    // Resolved against the folder the user chose the identity in; a new worktree has the
+    // same committed agent files.
+    const agent = input.agentName
+      ? await store.resolveAgentIdentity(input.rootWorkspaceId, input.agentName)
+      : undefined;
     let session: Awaited<ReturnType<typeof store.driver.createSession>>;
     let initialModel: { provider: string; modelId: string } | undefined;
     let initialThinkingLevel: string | undefined;
@@ -151,6 +156,7 @@ export async function startThread(
         ...(initialModel ? { initialModel } : {}),
         ...(initialThinkingLevel ? { initialThinkingLevel } : {}),
         extensionFlagValues: extensionFlags.applied,
+        ...(agent ? { agent } : {}),
       });
     } catch (error) {
       if (rollbackWorktree) {

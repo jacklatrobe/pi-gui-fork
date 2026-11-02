@@ -41,6 +41,8 @@ export interface SessionCatalogEntry {
   archivedAt?: string;
   previewSnippet?: string;
   sessionFilePath?: string;
+  /** Display name of the agent identity the thread started with, when it has one. */
+  agentName?: string;
   status: SessionStatus;
   /**
    * The last run was stopped (pi reported it aborted) while this reply entry was the newest

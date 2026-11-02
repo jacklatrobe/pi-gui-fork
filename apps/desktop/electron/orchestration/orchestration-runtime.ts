@@ -6,8 +6,14 @@ import type {
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 
+import type { AgentIdentityRecord } from "../../contracts/agents";
+
 export const createChildThreadToolName = "create_child_thread";
 export const createChildThreadAction = "pi_gui_create_child_thread";
+export const listAgentsToolName = "list_agents";
+export const listAgentsAction = "pi_gui_list_agents";
+export const subagentToolName = "subagent";
+export const subagentAction = "pi_gui_subagent";
 export const listThreadsToolName = "list_threads";
 export const listThreadsAction = "pi_gui_list_threads";
 export const readThreadToolName = "read_thread";
@@ -20,7 +26,9 @@ export const archiveChildThreadsAction = "pi_gui_archive_child_threads";
 /** Every pi-gui thread tool. Their names are not file or search tools, whatever they contain. */
 export const orchestrationToolNames: ReadonlySet<string> = new Set([
   createChildThreadToolName,
+  listAgentsToolName,
   listThreadsToolName,
+  subagentToolName,
   readThreadToolName,
   sendMessageToThreadToolName,
   archiveChildThreadsToolName,
@@ -33,9 +41,38 @@ export interface ArchiveChildThreadsToolDetails {
   readonly error?: string;
 }
 
+export interface ListAgentsToolDetails {
+  readonly action: typeof listAgentsAction;
+  readonly workspaceId: string;
+  readonly agents?: readonly AgentIdentityRecord[];
+  readonly error?: string;
+}
+
+/**
+ * The pi-subagents-shaped delegation result. The child is always a visible pi-gui thread;
+ * a foreground call additionally carries the child's reply.
+ */
+export interface SubagentToolDetails {
+  readonly action: typeof subagentAction;
+  /** The agent identity the child ran as, or undefined for a default thread. */
+  readonly agent?: string;
+  readonly task?: string;
+  readonly childThreadId?: string;
+  readonly childWorkspaceId?: string;
+  readonly childSessionId?: string;
+  readonly title?: string;
+  /** `running` for async delegation, otherwise the child's terminal state. */
+  readonly status?: "running" | "completed" | "failed";
+  /** The child's final assistant text, present only for a foreground call. */
+  readonly reply?: string;
+  readonly error?: string;
+}
+
 export interface CreateChildThreadToolDetails {
   readonly action: typeof createChildThreadAction;
   readonly prompt: string;
+  /** Agent identity the child thread was asked to run as, when one was chosen. */
+  readonly agent?: string;
   readonly childThreadId?: string;
   readonly childWorkspaceId?: string;
   readonly childSessionId?: string;
@@ -54,6 +91,8 @@ export interface OrchestrationThreadListEntry {
   readonly relationship: "current" | "child" | "workspace" | "other_project";
   /** Display name of the thread's project, set only for `other_project` threads. */
   readonly project?: string;
+  /** The thread's agent identity, when it started with one. */
+  readonly agent?: string;
   readonly updatedAt: string;
   readonly preview: string;
   readonly childThreadId?: string;
@@ -112,8 +151,18 @@ export interface OrchestrationRuntimeBridge {
   ) => Promise<AgentToolResult<ArchiveChildThreadsToolDetails>>;
   readonly createChildThread: (
     ctx: ExtensionContext,
-    input: { readonly prompt: string; readonly toolCallId: string },
+    input: { readonly prompt: string; readonly toolCallId: string; readonly agentName?: string },
   ) => Promise<AgentToolResult<CreateChildThreadToolDetails>>;
+  readonly listAgents: (ctx: ExtensionContext) => Promise<AgentToolResult<ListAgentsToolDetails>>;
+  readonly runSubagent: (
+    ctx: ExtensionContext,
+    input: {
+      readonly agent?: string;
+      readonly task: string;
+      readonly foreground: boolean;
+      readonly toolCallId: string;
+    },
+  ) => Promise<AgentToolResult<SubagentToolDetails>>;
   readonly listThreads: (
     ctx: ExtensionContext,
     input: { readonly workspace?: string },
@@ -131,7 +180,9 @@ export interface OrchestrationRuntimeBridge {
 type OrchestrationToolDetails =
   | ArchiveChildThreadsToolDetails
   | CreateChildThreadToolDetails
+  | ListAgentsToolDetails
   | ListThreadsToolDetails
+  | SubagentToolDetails
   | ReadThreadToolDetails
   | SendMessageToThreadToolDetails;
 
@@ -142,11 +193,13 @@ function createCreateChildThreadTool(
     name: createChildThreadToolName,
     label: "Create child thread",
     description:
-      "Start a separate pi-gui child thread for a delegated investigation or implementation task.",
-    promptSnippet: "create_child_thread: start a separate pi-gui child thread for delegated work.",
+      "Start a separate pi-gui child thread for a delegated investigation or implementation task, optionally as a named agent identity.",
+    promptSnippet:
+      "create_child_thread: start a separate pi-gui child thread for delegated work, optionally as an agent identity.",
     promptGuidelines: [
       "Use create_child_thread when the user asks you to spin up, delegate to, or run a separate child thread.",
       "Keep the child prompt concrete and self-contained so the user can inspect the resulting thread.",
+      "Pass agent with a name returned by list_agents to run the child thread as that specialist; omit it for a default thread.",
     ],
     parameters: {
       type: "object",
@@ -154,6 +207,11 @@ function createCreateChildThreadTool(
         prompt: {
           type: "string",
           description: "Concrete instructions for the child thread.",
+        },
+        agent: {
+          type: "string",
+          description:
+            "Optional agent identity name from list_agents, such as scout, worker or reviewer.",
         },
       },
       required: ["prompt"],
@@ -163,7 +221,102 @@ function createCreateChildThreadTool(
       if (!prompt) {
         throw new Error("create_child_thread requires a non-empty prompt.");
       }
-      return bridge.createChildThread(ctx, { prompt, toolCallId });
+      const agentName = isRecord(params) ? stringParam(params, "agent") : undefined;
+      return bridge.createChildThread(ctx, {
+        prompt,
+        toolCallId,
+        ...(agentName ? { agentName } : {}),
+      });
+    },
+  };
+}
+
+function createListAgentsTool(
+  bridge: OrchestrationRuntimeBridge,
+): ToolDefinition<any, OrchestrationToolDetails> {
+  return {
+    name: listAgentsToolName,
+    label: "List agent identities",
+    description:
+      "List the agent identities available for new threads in this project, with what each is for.",
+    promptSnippet:
+      "list_agents: list the agent identities available for new threads in this project.",
+    promptGuidelines: [
+      "Use list_agents before create_child_thread when the child should run as a specific specialist.",
+      "Pass a returned agent name to create_child_thread's agent parameter.",
+    ],
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+      return bridge.listAgents(ctx);
+    },
+  };
+}
+
+/**
+ * pi-gui's replacement for pi-subagents' `subagent` tool. It keeps the familiar
+ * `agent`/`task` shape but never starts a hidden child session: every delegation is a
+ * pi-gui thread the user can open, read and message.
+ */
+function createSubagentTool(
+  bridge: OrchestrationRuntimeBridge,
+): ToolDefinition<any, OrchestrationToolDetails> {
+  return {
+    name: subagentToolName,
+    label: "Delegate to a subagent thread",
+    description:
+      'Delegate work to a focused child agent. The child always runs as a visible pi-gui thread the user can open, read and message; nothing runs hidden. Use action "list" to see the available agents.',
+    promptSnippet:
+      'subagent: delegate to a focused child agent as a visible pi-gui thread (also accepts action: "list").',
+    promptGuidelines: [
+      "Use subagent for delegation, delegation in the background, and parallel work; do not look for a separate hidden-child tool.",
+      'Pass agent with a name from list_agents (or subagent action "list") to choose the specialist, and task with the concrete job.',
+      "Async delegation (the default) returns a thread id immediately; set async: false to wait for the child and read its reply in this call.",
+    ],
+    parameters: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["list"],
+          description: "List the available agent identities instead of delegating.",
+        },
+        agent: {
+          type: "string",
+          description:
+            "Agent identity name, such as scout, worker or reviewer. Omit for a default thread.",
+        },
+        task: {
+          type: "string",
+          description: "The concrete job for the child agent.",
+        },
+        async: {
+          type: "boolean",
+          description: "Default true: return the thread id without waiting for the reply.",
+        },
+      },
+    },
+    async execute(toolCallId, params, _signal, _onUpdate, ctx) {
+      const record = isRecord(params) ? params : {};
+      if (record.action === "list") {
+        return bridge.listAgents(ctx);
+      }
+      const task = typeof record.task === "string" ? record.task.trim() : "";
+      if (!task) {
+        return {
+          content: [{ type: "text", text: "subagent requires a non-empty task." }],
+          details: { action: subagentAction, error: "subagent requires a non-empty task." },
+        };
+      }
+      const agent = stringParam(record, "agent");
+      return bridge.runSubagent(ctx, {
+        task,
+        foreground: record.async === false,
+        toolCallId,
+        ...(agent ? { agent } : {}),
+      });
     },
   };
 }
@@ -349,7 +502,9 @@ export function createOrchestrationRuntimeTools(
   bridge: OrchestrationRuntimeBridge,
 ): readonly ToolDefinition<any, OrchestrationToolDetails>[] {
   return [
+    createSubagentTool(bridge),
     createCreateChildThreadTool(bridge),
+    createListAgentsTool(bridge),
     createListThreadsTool(bridge),
     createReadThreadTool(bridge),
     createSendMessageToThreadTool(bridge),
@@ -383,6 +538,15 @@ export function createChildThreadPromptFromToolOutput(output: unknown): string |
     return undefined;
   }
   return createChildThreadPromptFromParams(output.details);
+}
+
+/** The agent identity a finished create_child_thread call asked for, when it named one. */
+export function createChildThreadAgentFromToolOutput(output: unknown): string | undefined {
+  const details = toolOutputDetails(output);
+  if (details?.action !== createChildThreadAction) {
+    return undefined;
+  }
+  return stringParam(details, "agent");
 }
 
 export function listThreadsRequestedFromToolOutput(output: unknown): boolean {

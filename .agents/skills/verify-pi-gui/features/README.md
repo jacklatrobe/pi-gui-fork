@@ -28,6 +28,7 @@ Record exact feature/entry point, command, result and evidence directory. `compl
 | Supporting | [Scheduled tasks](scheduled-tasks.md)           | Core Electron specs for list/create/fire/tool; not in default conversation proof                             |
 | Supporting | [Worktrees](worktrees.md)                       | `--maintenance` switches to Workspace grouping, creates a permanent worktree, and checks `git worktree list` |
 | Supporting | [Review panel](review.md)                       | Core `review-*` specs only; no `prove.sh` lane                                                               |
+| Supporting | [Agent identities](agent-identities.md)         | Core `agent-identities.spec.ts`; catalog and superseded-extension unit tests; no `prove.sh` lane             |
 | Supporting | [Add to Chat](add-to-chat.md)                   | Core `transcript-annotations.spec.ts` only; no `prove.sh` lane                                               |
 
 Packaged-app launch, native dialogs/clipboard, model/account onboarding, attachments, file browsing and terminal interaction, and broader extension behavior require separate mapped journeys as those features are changed. Do not claim full-app coverage from this initial map.

@@ -55,6 +55,11 @@ export class PiSdkDriver implements SessionDriver {
     this.runtimeSupervisor = new RuntimeSupervisor({ ...options, ...deps });
   }
 
+  /** pi's agent directory (`~/.pi/agent` unless the host overrode it). */
+  get agentDirectory(): string {
+    return this.agentDir;
+  }
+
   createSession(workspace: WorkspaceRef, options?: CreateSessionOptions): Promise<SessionSnapshot> {
     return this.supervisor.createSession(workspace, options);
   }

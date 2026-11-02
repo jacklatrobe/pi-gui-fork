@@ -30,6 +30,7 @@ import type {
 } from "@pi-gui/session-driver/runtime-types";
 import type { WorkspaceRef } from "@pi-gui/session-driver";
 import { createRuntimeDependencies } from "./runtime-deps.js";
+import { dropSupersededDelegationExtensions } from "./superseded-extensions.js";
 import {
   createSettingsManagerWithoutNpmPackages,
   isGlobalNpmLookupError,
@@ -552,6 +553,7 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
       cwd: workspace.path,
       agentDir: this.agentDir,
       settingsManager,
+      extensionsOverride: dropSupersededDelegationExtensions,
       extensionFactories: this.inventoryExtensionFactories(),
     });
     try {
@@ -578,6 +580,7 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
         cwd: workspace.path,
         agentDir: this.agentDir,
         settingsManager,
+        extensionsOverride: dropSupersededDelegationExtensions,
         extensionFactories: this.inventoryExtensionFactories(),
       });
       await resourceLoader.reload();

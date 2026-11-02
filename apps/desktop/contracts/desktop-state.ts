@@ -103,6 +103,8 @@ export interface QueuedComposerMessage {
 export interface SessionRecord {
   readonly id: string;
   readonly title: string;
+  /** Display name of the agent identity the thread started with, when it has one. */
+  readonly agentName?: string;
   readonly updatedAt: string;
   readonly pinnedAt?: string;
   readonly lastViewedAt?: string;
@@ -425,6 +427,8 @@ export interface CreateWorktreeInput {
 export type StartThreadInput = {
   readonly rootWorkspaceId: string;
   readonly environment: NewThreadEnvironment;
+  /** Name of the agent identity to start the thread as, when the user chose one. */
+  readonly agentName?: string;
   readonly prompt?: string;
   readonly attachments?: readonly ComposerAttachment[];
   readonly provider?: string;

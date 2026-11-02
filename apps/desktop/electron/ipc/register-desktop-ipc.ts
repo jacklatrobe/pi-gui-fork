@@ -93,6 +93,7 @@ type WorkspaceOwner = Pick<
   | "syncCurrentWorkspace"
   | "getWorkspacePath"
   | "getWorkspaceRecords"
+  | "listAgentIdentities"
 >;
 
 type ConversationOwner = Pick<
@@ -607,6 +608,12 @@ export function registerDesktopIpc({
         ),
       ),
   );
+  ipcMain.handle(desktopIpc.listAgentIdentities, (event, rawWorkspaceId: unknown) => {
+    windows.windowForSender(event.sender);
+    return owners.workspace.listAgentIdentities(
+      expectNonEmptyString(rawWorkspaceId, "workspaceId"),
+    );
+  });
   ipcMain.handle(desktopIpc.listMcpServers, (event, rawWorkspaceId: unknown) => {
     windows.windowForSender(event.sender);
     return owners.settings.listMcpServers(expectNonEmptyString(rawWorkspaceId, "workspaceId"));

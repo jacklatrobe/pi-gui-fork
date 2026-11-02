@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { RuntimeSnapshot } from "@pi-gui/session-driver/runtime-types";
 import type { ExtensionFlagValues } from "@pi-gui/session-driver";
+import type { AgentIdentityRecord } from "../../../contracts/agents";
 import type {
   ComposerAttachment,
   NewThreadEnvironment,
@@ -29,7 +30,15 @@ import type {
   ModelOnboardingSettingsSection,
 } from "../settings/model-onboarding";
 import { ModelSelector } from "../conversation/model-selector";
+import { AgentSelector } from "./agent-selector";
 import { ExtensionFlagsSelector } from "./extension-flags-selector";
+
+/** The agent choice for the thread about to start, as one value. */
+interface NewThreadAgentIdentity {
+  readonly name: string | undefined;
+  readonly agents: readonly AgentIdentityRecord[];
+  readonly onSelect: (name: string | undefined) => void;
+}
 
 interface NewThreadViewProps {
   readonly workspaces: readonly WorkspaceRecord[];
@@ -61,6 +70,7 @@ interface NewThreadViewProps {
   readonly onSelectWorkspace: (workspaceId: string) => void;
   readonly onSetModel: (provider: string, modelId: string) => void;
   readonly onSetThinking: (level: string) => void;
+  readonly agentIdentity: NewThreadAgentIdentity;
   readonly extensionFlags: ExtensionFlagValues;
   readonly onSetExtensionFlag: (name: string, value: boolean | string) => void;
   readonly onOpenModelSettings: (section: ModelOnboardingSettingsSection) => void;
@@ -109,6 +119,7 @@ export function NewThreadView({
   onSelectWorkspace,
   onSetModel,
   onSetThinking,
+  agentIdentity,
   extensionFlags,
   onSetExtensionFlag,
   onOpenModelSettings,
@@ -238,6 +249,9 @@ export function NewThreadView({
                   onSelectEnvironment={onSelectEnvironment}
                   onSetModel={onSetModel}
                   onSetThinking={onSetThinking}
+                  agentName={agentIdentity.name}
+                  agentIdentities={agentIdentity.agents}
+                  onSelectAgent={agentIdentity.onSelect}
                   extensionFlags={extensionFlags}
                   onSetExtensionFlag={onSetExtensionFlag}
                   onAddAttachments={onAddAttachments}
@@ -264,6 +278,9 @@ interface NewThreadComposerFooterProps {
   readonly onSelectEnvironment: (environment: NewThreadEnvironment) => void;
   readonly onSetModel: (provider: string, modelId: string) => void;
   readonly onSetThinking: (level: string) => void;
+  readonly agentName: string | undefined;
+  readonly agentIdentities: readonly AgentIdentityRecord[];
+  readonly onSelectAgent: (name: string | undefined) => void;
   readonly extensionFlags: ExtensionFlagValues;
   readonly onSetExtensionFlag: (name: string, value: boolean | string) => void;
   readonly onAddAttachments: (files: File[]) => void;
@@ -282,6 +299,9 @@ function NewThreadComposerFooter({
   onSelectEnvironment,
   onSetModel,
   onSetThinking,
+  agentName,
+  agentIdentities,
+  onSelectAgent,
   extensionFlags,
   onSetExtensionFlag,
   onAddAttachments,
@@ -322,6 +342,7 @@ function NewThreadComposerFooter({
               onSetModel={onSetModel}
               onSetThinking={onSetThinking}
             />
+            <AgentSelector agents={agentIdentities} value={agentName} onSelect={onSelectAgent} />
             <ExtensionFlagsSelector
               runtime={runtime}
               values={extensionFlags}

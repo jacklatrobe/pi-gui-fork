@@ -13,6 +13,7 @@ import type {
   NavigateSessionTreeResult,
   SessionTreeSnapshot,
 } from "@pi-gui/session-driver/types";
+import type { AgentIdentityRecord } from "./agents";
 import type { ClipboardImageRead } from "./composer-attachments";
 import type { DesktopEditorList } from "./editors";
 import type { SessionRef } from "@pi-gui/session-driver/types";
@@ -180,6 +181,7 @@ export const desktopIpc = {
   setScopedModelPatterns: "pi-gui:set-scoped-model-patterns",
   setSkillEnabled: "pi-gui:set-skill-enabled",
   setExtensionEnabled: "pi-gui:set-extension-enabled",
+  listAgentIdentities: "pi-gui:list-agent-identities",
   listMcpServers: "pi-gui:list-mcp-servers",
   addMcpServer: "pi-gui:add-mcp-server",
   removeMcpServer: "pi-gui:remove-mcp-server",
@@ -818,6 +820,7 @@ export interface PiDesktopApi {
     filePath: string,
     enabled: boolean,
   ): Promise<DesktopAppState>;
+  listAgentIdentities(workspaceId: string): Promise<readonly AgentIdentityRecord[]>;
   listMcpServers(workspaceId: string): Promise<McpServersSnapshot>;
   addMcpServer(workspaceId: string, server: NewMcpServerInput): Promise<DesktopAppState>;
   removeMcpServer(workspaceId: string, name: string): Promise<DesktopAppState>;

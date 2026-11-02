@@ -60,6 +60,12 @@ export interface SessionTranscriptCustomMessage {
 /** The custom entry type an extension writes with `pi.appendEntry` to show a card in pi-gui. */
 export const EXTENSION_CARD_CUSTOM_TYPE = "pi-gui.card";
 
+/**
+ * The custom entry type pi-gui writes into a session when a thread starts with an agent
+ * identity. Its `data` is `{ name }`; it is display/state only and never reaches the model.
+ */
+export const AGENT_IDENTITY_CUSTOM_TYPE = "pi-gui.agent-identity";
+
 export type ExtensionCardTone = "neutral" | "success" | "warning" | "error";
 
 export interface ExtensionCardRow {

@@ -198,6 +198,14 @@ function createStoreBackedOrchestrationRuntimeBridge(): OrchestrationRuntimeBrid
       await store.initialize();
       return store.createChildThreadToolResult(sessionRefFromExtensionContext(ctx), input);
     },
+    listAgents: async (ctx) => {
+      await store.initialize();
+      return store.listAgentsToolResult(sessionRefFromExtensionContext(ctx));
+    },
+    runSubagent: async (ctx, input) => {
+      await store.initialize();
+      return store.subagentToolResult(sessionRefFromExtensionContext(ctx), input);
+    },
     listThreads: async (ctx, input) => {
       await store.initialize();
       return store.listThreadsToolResult(sessionRefFromExtensionContext(ctx), input.workspace);

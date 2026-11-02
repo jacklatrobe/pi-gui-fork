@@ -263,6 +263,7 @@ function buildSessionRecord(
   return {
     id: session.sessionRef.sessionId,
     title: session.title,
+    agentName: session.agentName,
     updatedAt: session.updatedAt,
     pinnedAt,
     lastViewedAt,

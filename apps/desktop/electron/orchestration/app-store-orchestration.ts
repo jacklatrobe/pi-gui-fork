@@ -5,6 +5,7 @@ import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { sessionKey } from "@pi-gui/session-driver";
 import type {
   CreateSessionOptions,
+  SessionAgentIdentity,
   SessionConfig,
   SessionDriverEvent,
   SessionRef,
@@ -35,9 +36,12 @@ import type { RefreshStateOptions } from "../application/refresh-state-options";
 import {
   archiveChildThreadsAction,
   createChildThreadAction,
+  createChildThreadAgentFromToolOutput,
   createChildThreadPromptFromToolOutput,
   createChildThreadToolName,
+  listAgentsAction,
   listThreadsAction,
+  subagentAction,
   listThreadsRequestedFromToolOutput,
   listThreadsToolName,
   readThreadAction,
@@ -50,7 +54,9 @@ import {
 import type {
   ArchiveChildThreadsToolDetails,
   CreateChildThreadToolDetails,
+  ListAgentsToolDetails,
   ListThreadsToolDetails,
+  SubagentToolDetails,
   OrchestrationThreadListEntry,
   ReadThreadToolDetails,
   SendMessageToThreadToolDetails,
@@ -90,10 +96,15 @@ interface OrchestrationOwnerHost {
   withError(error: unknown): Promise<DesktopAppState>;
   persistUiState(): Promise<void>;
   workspaceRefFromState(workspaceId: string): WorkspaceRef | undefined;
-  sessionFromState(
-    sessionRef: SessionRef,
-  ):
-    | { archivedAt?: string; updatedAt: string; title: string; status: string; preview?: string }
+  sessionFromState(sessionRef: SessionRef):
+    | {
+        archivedAt?: string;
+        updatedAt: string;
+        title: string;
+        status: string;
+        preview?: string;
+        agentName?: string;
+      }
     | undefined;
   ensureSessionReady(sessionRef: SessionRef): Promise<SessionSnapshot | undefined>;
   /** The driver's report of how the session's newest assistant reply ended. */
@@ -112,6 +123,15 @@ interface OrchestrationOwnerHost {
   ): () => void;
   updateSessionConfig(sessionRef: SessionRef, config: SessionConfig | undefined): void;
   buildCreateSessionOptions(workspaceId: string): Promise<CreateSessionOptions | undefined>;
+  /** Resolve a chosen agent identity for a workspace, or undefined when it no longer exists. */
+  resolveAgentIdentity(
+    workspaceId: string,
+    name: string,
+  ): Promise<SessionAgentIdentity | undefined>;
+  /** The agent identities this workspace can start a thread as. */
+  listAgentIdentities(
+    workspaceId: string,
+  ): Promise<readonly import("../../contracts/agents").AgentIdentityRecord[]>;
   getQueuedComposerMessages(
     sessionRef: SessionRef,
   ): readonly import("../../contracts/desktop-state").QueuedComposerMessage[];
@@ -160,8 +180,18 @@ export interface OrchestrationOwner {
   hasOrchestrationParentSession(sessionRef: SessionRef): boolean;
   createChildThreadToolResult(
     parentRef: SessionRef,
-    input: { readonly prompt: string; readonly toolCallId: string },
+    input: { readonly prompt: string; readonly toolCallId: string; readonly agentName?: string },
   ): Promise<AgentToolResult<CreateChildThreadToolDetails>>;
+  listAgentsToolResult(parentRef: SessionRef): Promise<AgentToolResult<ListAgentsToolDetails>>;
+  subagentToolResult(
+    parentRef: SessionRef,
+    input: {
+      readonly agent?: string;
+      readonly task: string;
+      readonly foreground: boolean;
+      readonly toolCallId: string;
+    },
+  ): Promise<AgentToolResult<SubagentToolDetails>>;
   listThreadsToolResult(
     parentRef: SessionRef,
     workspace?: string,
@@ -197,6 +227,8 @@ export function createOrchestrationOwner(store: OrchestrationOwnerHost): Orchest
       hasOrchestrationParentSession(store.orchestrationChildren(), sessionRef),
     createChildThreadToolResult: (parentRef, input) =>
       createChildThreadToolResult(store, parentRef, input),
+    listAgentsToolResult: (parentRef) => listAgentsToolResult(store, parentRef),
+    subagentToolResult: (parentRef, input) => subagentToolResult(store, parentRef, input),
     listThreadsToolResult: (parentRef, workspace) =>
       listThreadsToolResult(store, parentRef, workspace),
     readThreadToolResult: (parentRef, threadId) => readThreadToolResult(store, parentRef, threadId),
@@ -210,6 +242,8 @@ interface SpawnChildThreadInput {
   readonly parentSessionId: string;
   readonly prompt: string;
   readonly sourceToolCallId?: string;
+  /** Agent identity the child thread should run as, when the caller named one. */
+  readonly agentName?: string;
 }
 
 interface CreatedChildThreadResult {
@@ -258,6 +292,10 @@ async function createChildThreadRecord(
     };
   }
 
+  const agent = input.agentName
+    ? await store.resolveAgentIdentity(input.parentWorkspaceId, input.agentName)
+    : undefined;
+
   if (pendingKey) {
     pendingCreateChildThreadToolCalls.add(pendingKey);
   }
@@ -266,6 +304,7 @@ async function createChildThreadRecord(
     const session = await store.driver.createSession(workspace, {
       ...createOptions,
       title: titleFromPrompt(prompt),
+      ...(agent ? { agent } : {}),
     });
     const childRef = session.ref;
     store.seedSession(session);
@@ -371,6 +410,7 @@ async function handleCreateChildThreadToolResult(
   if (!prompt) {
     return false;
   }
+  const agentName = createChildThreadAgentFromToolOutput(event.output);
 
   let deliveryStatus: CreatedChildThreadResult["deliveryStatus"];
   try {
@@ -379,6 +419,7 @@ async function handleCreateChildThreadToolResult(
       parentSessionId: event.sessionRef.sessionId,
       prompt,
       sourceToolCallId: event.callId,
+      ...(agentName ? { agentName } : {}),
     });
     deliveryStatus = result.deliveryStatus;
   } catch (error) {
@@ -401,7 +442,7 @@ async function handleCreateChildThreadToolResult(
     return false;
   }
 
-  updateCreateChildThreadToolOutput(store, event, prompt, child, deliveryStatus);
+  updateCreateChildThreadToolOutput(store, event, prompt, child, deliveryStatus, agentName);
   return true;
 }
 
@@ -544,17 +585,19 @@ async function cancelChildRunsForParent(
 async function createChildThreadToolResult(
   store: OrchestrationOwnerHost,
   parentRef: SessionRef,
-  input: { readonly prompt: string; readonly toolCallId: string },
+  input: { readonly prompt: string; readonly toolCallId: string; readonly agentName?: string },
 ): Promise<AgentToolResult<CreateChildThreadToolDetails>> {
   const { child, deliveryStatus } = await createChildThreadRecord(store, {
     parentWorkspaceId: parentRef.workspaceId,
     parentSessionId: parentRef.sessionId,
     prompt: input.prompt,
     sourceToolCallId: input.toolCallId,
+    ...(input.agentName ? { agentName: input.agentName } : {}),
   });
   const details: CreateChildThreadToolDetails = {
     action: createChildThreadAction,
     prompt: input.prompt.trim(),
+    ...(input.agentName ? { agent: input.agentName } : {}),
     childThreadId: child.id,
     childWorkspaceId: child.childWorkspaceId,
     childSessionId: child.childSessionId,
@@ -751,6 +794,146 @@ function unfinishedChildReason(store: OrchestrationOwnerHost, ref: SessionRef): 
   if (outcome === "incomplete") return "Child thread's last turn did not end with a reply";
   if (outcome !== "completed") return "Child thread's last run did not complete";
   return undefined;
+}
+
+/**
+ * The identities a parent can delegate to. The list is read from the project's agent files
+ * on every call, so a new agent file shows up without restarting pi-gui.
+ */
+async function listAgentsToolResult(
+  store: OrchestrationOwnerHost,
+  parentRef: SessionRef,
+): Promise<AgentToolResult<ListAgentsToolDetails>> {
+  const agents = await store.listAgentIdentities(parentRef.workspaceId);
+  if (agents.length === 0) {
+    const text =
+      "No agent identities are available for this project. Install the pi-subagents package or add agent markdown files under ~/.pi/agent/agents or .pi/agents.";
+    return {
+      content: [{ type: "text", text }],
+      details: { action: listAgentsAction, workspaceId: parentRef.workspaceId, error: text },
+    };
+  }
+  const text = [
+    "Available agent identities:",
+    ...agents.map(
+      (agent) =>
+        `- ${agent.name} (${agent.source}): ${agent.description || "no description"}` +
+        (agent.tools && agent.tools.length > 0 ? ` [tools: ${agent.tools.join(", ")}]` : "") +
+        (agent.model ? ` [model: ${agent.model}]` : ""),
+    ),
+  ].join("\n");
+  return {
+    content: [{ type: "text", text }],
+    details: { action: listAgentsAction, workspaceId: parentRef.workspaceId, agents },
+  };
+}
+
+/** How long a foreground `subagent` call waits for the child thread to settle. */
+const SUBAGENT_FOREGROUND_TIMEOUT_MS = 30 * 60_000;
+
+/**
+ * pi-gui's `subagent`: delegate to a focused child agent, always as a visible thread.
+ * Async delegation returns the thread id; foreground waits for the child and returns its reply.
+ */
+async function subagentToolResult(
+  store: OrchestrationOwnerHost,
+  parentRef: SessionRef,
+  input: {
+    readonly agent?: string;
+    readonly task: string;
+    readonly foreground: boolean;
+    readonly toolCallId: string;
+  },
+): Promise<AgentToolResult<SubagentToolDetails>> {
+  const { child, deliveryStatus } = await createChildThreadRecord(store, {
+    parentWorkspaceId: parentRef.workspaceId,
+    parentSessionId: parentRef.sessionId,
+    prompt: input.task,
+    sourceToolCallId: input.toolCallId,
+    ...(input.agent ? { agentName: input.agent } : {}),
+  });
+  const base = {
+    action: subagentAction,
+    ...(input.agent ? { agent: input.agent } : {}),
+    task: input.task,
+    childThreadId: child.id,
+    childWorkspaceId: child.childWorkspaceId,
+    childSessionId: child.childSessionId,
+    title: child.title,
+  } as const;
+
+  if (!input.foreground) {
+    const details: SubagentToolDetails = { ...base, status: "running" };
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${formatSubagentResult(details)}\ninitialPrompt: ${deliveryStatus}`,
+        },
+      ],
+      details,
+    };
+  }
+
+  const childRef = childSessionRef(child);
+  const outcome =
+    deliveryStatus === "responded" ? "completed" : await waitForChildRun(store, childRef);
+  const reply = lastAssistantReplyText(store.transcriptFor(childRef));
+  const failed = outcome === "failed" || outcome === "timeout";
+  const details: SubagentToolDetails = {
+    ...base,
+    status: failed ? "failed" : "completed",
+    ...(reply ? { reply } : {}),
+    ...(outcome === "timeout"
+      ? { error: `The child thread did not settle within ${SUBAGENT_FOREGROUND_TIMEOUT_MS}ms.` }
+      : {}),
+  };
+  return { content: [{ type: "text", text: formatSubagentResult(details) }], details };
+}
+
+/** Wait until the child session's run settles. The child keeps working if this gives up. */
+function waitForChildRun(
+  store: OrchestrationOwnerHost,
+  childRef: SessionRef,
+): Promise<"completed" | "failed" | "timeout"> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timeout = setTimeout(() => finish("timeout"), SUBAGENT_FOREGROUND_TIMEOUT_MS);
+    const unsubscribe = store.subscribeToSessionEvents((event) => {
+      if (sessionKey(event.sessionRef) !== sessionKey(childRef)) return;
+      if (event.type === "runFailed") finish("failed");
+      else if (event.type === "runCompleted") finish("completed");
+      else if (event.type === "sessionClosed" && event.reason === "failed") finish("failed");
+    });
+    function finish(result: "completed" | "failed" | "timeout"): void {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      unsubscribe();
+      resolve(result);
+    }
+  });
+}
+
+function lastAssistantReplyText(transcript: readonly TranscriptMessage[]): string | undefined {
+  for (let index = transcript.length - 1; index >= 0; index -= 1) {
+    const item = transcript[index]!;
+    if (item.kind === "message" && item.role === "assistant" && item.text.trim()) {
+      return item.text.trim();
+    }
+  }
+  return undefined;
+}
+
+function formatSubagentResult(result: SubagentToolDetails): string {
+  return [
+    `Child thread: ${result.title ?? result.task ?? ""}` +
+      (result.agent ? ` (agent: ${result.agent})` : ""),
+    `threadId: ${result.childThreadId ?? ""}`,
+    `status: ${result.status ?? "unknown"}`,
+    ...(result.error ? [`error: ${result.error}`] : []),
+    ...(result.reply ? ["", result.reply] : []),
+  ].join("\n");
 }
 
 function listThreadsToolResult(
@@ -1431,6 +1614,7 @@ function updateCreateChildThreadToolOutput(
   prompt: string,
   child: OrchestrationChildThread,
   deliveryStatus: CreatedChildThreadResult["deliveryStatus"],
+  agentName?: string,
 ): void {
   updateThreadToolOutput(store, event, {
     detail: `Created child thread: ${child.title}`,
@@ -1438,6 +1622,7 @@ function updateCreateChildThreadToolOutput(
     details: {
       action: createChildThreadAction,
       prompt,
+      ...(agentName ? { agent: agentName } : {}),
       childThreadId: child.id,
       childWorkspaceId: child.childWorkspaceId,
       childSessionId: child.childSessionId,
@@ -1712,6 +1897,7 @@ function listThreadsForContext(
         sessionId: session.id,
         title: child?.title ?? session.title,
         status: child?.status ?? session.status,
+        ...(session.agentName ? { agent: session.agentName } : {}),
         ...(child ? threadListSupervisionFields(child) : {}),
         relationship: child
           ? "child"
@@ -1727,7 +1913,8 @@ function listThreadsForContext(
 
   for (const child of parentChildren) {
     const key = sessionKey(childSessionRef(child));
-    if (entries.has(key) || store.sessionFromState(childSessionRef(child))?.archivedAt) {
+    const childSession = store.sessionFromState(childSessionRef(child));
+    if (entries.has(key) || childSession?.archivedAt) {
       continue;
     }
     entries.set(key, {
@@ -1736,6 +1923,7 @@ function listThreadsForContext(
       sessionId: child.childSessionId,
       title: child.title,
       status: child.status,
+      ...(childSession?.agentName ? { agent: childSession.agentName } : {}),
       ...threadListSupervisionFields(child),
       relationship: "child",
       updatedAt: child.updatedAt,
@@ -1796,6 +1984,7 @@ function listThreadsInWorkspaces(
         sessionId: session.id,
         title: session.title,
         status: session.status,
+        ...(session.agentName ? { agent: session.agentName } : {}),
         relationship: "other_project",
         project: project?.name ?? entry.name,
         updatedAt: session.updatedAt,
@@ -1920,6 +2109,7 @@ function formatThreadList(threads: readonly ThreadListEntry[]): string {
     ...threads.map(
       (thread) =>
         `- ${thread.threadId} (${thread.relationship}, ${thread.status}): ${thread.title}` +
+        (thread.agent ? ` [agent: ${thread.agent}]` : "") +
         (thread.project ? ` [project: ${thread.project}]` : "") +
         (thread.supervisionGate
           ? ` [gate=${thread.supervisionGate}: ${thread.supervisionReason ?? "monitoring"}]`
@@ -1953,6 +2143,7 @@ function formatThreadReadResult(result: {
 function formatCreateChildThreadResult(result: CreateChildThreadToolDetails): string {
   return (
     `Created child thread: ${result.title ?? result.prompt}\n` +
+    (result.agent ? `agent: ${result.agent}\n` : "") +
     `childThreadId: ${result.childThreadId ?? ""}\n` +
     `childWorkspaceId: ${result.childWorkspaceId ?? ""}\n` +
     `childSessionId: ${result.childSessionId ?? ""}` +

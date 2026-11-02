@@ -4,6 +4,7 @@ import type { JsonCatalogStore } from "@pi-gui/catalogs/node";
 import type {
   CreateSessionOptions,
   ExtensionFlagValues,
+  SessionAgentIdentity,
   SessionConfig,
   SessionRef,
   SessionRunOutcome,
@@ -80,6 +81,11 @@ export interface WorkspaceOwnerHost {
   clearPendingAutoTitle(sessionRef: SessionRef): void;
   updateSessionConfig(sessionRef: SessionRef, config: SessionConfig | undefined): void;
   buildCreateSessionOptions(workspaceId: string): Promise<CreateSessionOptions | undefined>;
+  /** Resolve a chosen agent identity for a workspace, or undefined when it no longer exists. */
+  resolveAgentIdentity(
+    workspaceId: string,
+    name: string,
+  ): Promise<SessionAgentIdentity | undefined>;
   /** Check a new thread's flag choices against the flags this workspace's extensions registered. */
   resolveExtensionFlags(
     workspaceId: string,

@@ -56,6 +56,7 @@ import type {
 } from "@pi-gui/session-driver/types";
 import type { HostUiResponse } from "@pi-gui/session-driver";
 import type { RuntimeSettingsSnapshot } from "@pi-gui/session-driver/runtime-types";
+import type { AgentIdentityRecord } from "../contracts/agents";
 import type {
   AppView,
   ComposerAttachment,
@@ -411,6 +412,10 @@ contextBridge.exposeInMainWorld("piApp", {
       filePath,
       enabled,
     ) as Promise<DesktopAppState>,
+  listAgentIdentities: (workspaceId: string) =>
+    ipcRenderer.invoke(desktopIpc.listAgentIdentities, workspaceId) as Promise<
+      readonly AgentIdentityRecord[]
+    >,
   listMcpServers: (workspaceId: string) =>
     ipcRenderer.invoke(desktopIpc.listMcpServers, workspaceId) as Promise<McpServersSnapshot>,
   addMcpServer: (workspaceId: string, server: NewMcpServerInput) =>

@@ -232,6 +232,14 @@ test("IPC request validation passes new-thread extension flags through as boolea
   );
 });
 
+test("IPC request validation passes a new-thread agent name through as an optional string", () => {
+  const base = { rootWorkspaceId: "workspace-a", environment: "local" };
+  expect(expectStartThreadInput(base).agentName).toBeUndefined();
+  expect(expectStartThreadInput({ ...base, agentName: "scout" }).agentName).toBe("scout");
+  expect(() => expectStartThreadInput({ ...base, agentName: "" })).toThrow(/input\.agentName/);
+  expect(() => expectStartThreadInput({ ...base, agentName: 7 })).toThrow(/input\.agentName/);
+});
+
 test("IPC request validation accepts one MCP server shape and a known scope", () => {
   expect(expectNewMcpServerInput({ name: " docs ", command: "npx", args: ["-y", "a b"] })).toEqual({
     name: "docs",

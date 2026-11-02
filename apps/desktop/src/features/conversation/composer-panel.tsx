@@ -34,6 +34,7 @@ import type {
 import { ContextMeter } from "./context-meter";
 import { ModelSelector } from "./model-selector";
 import { ExtensionNotices } from "../extensions/extension-notices";
+import { AgentBadge } from "../threads/agent-selector";
 import { ExtensionFlagsBadge } from "../threads/extension-flags-selector";
 import type { ExtensionDockModel } from "../extensions/extension-session-ui";
 
@@ -226,6 +227,7 @@ export function ComposerPanel({
                     onSetModel={onSetModel}
                     onSetThinking={onSetThinking}
                   />
+                  <AgentBadge name={selectedSession.agentName} />
                   <ExtensionFlagsBadge values={extensionFlags} />
                   <ContextMeter usage={usage} />
                 </div>

@@ -1118,6 +1118,7 @@ export default function App() {
                   newThread.setModelId(modelId);
                 }}
                 onSetThinking={newThread.setThinkingLevel}
+                agentIdentity={newThread.agentIdentity}
                 extensionFlags={newThread.extensionFlags}
                 onSetExtensionFlag={newThread.setExtensionFlag}
                 onOpenModelSettings={(section) => openSettings(newThread.workspace?.id, section)}

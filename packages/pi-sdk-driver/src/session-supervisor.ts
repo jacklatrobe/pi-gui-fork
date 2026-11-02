@@ -20,6 +20,7 @@ import type {
   NavigateSessionTreeOptions,
   NavigateSessionTreeResult,
   SessionMessageDeliveryMode,
+  SessionAgentIdentity,
   SessionMessageInput,
   SessionQueuedMessage,
   SessionTreeNodeSnapshot,
@@ -53,7 +54,7 @@ import type {
 import type { RuntimeCommandRecord } from "@pi-gui/session-driver/runtime-types";
 import { isMissingFileError, JsonCatalogStore } from "@pi-gui/catalogs/node";
 import type { SessionFileCatalogStorage } from "@pi-gui/catalogs";
-import { sessionKey } from "@pi-gui/session-driver";
+import { AGENT_IDENTITY_CUSTOM_TYPE, sessionKey } from "@pi-gui/session-driver";
 import { buildSessionSchemaInfo, readSessionFileSchemaVersion } from "./session-schema.js";
 import {
   gatedBuiltinExtensions,
@@ -85,6 +86,7 @@ import {
 } from "./unsupported-host-ui.js";
 import { normalizeRuntimeCommandName, skillCommandName } from "./runtime-command-utils.js";
 import {
+  agentNameFromBranch,
   buildSnapshot,
   chainRecoveringEventQueue,
   createWorkspaceRef,
@@ -130,8 +132,19 @@ import {
   type PiCreateAgentSessionOptions,
   type PiModelInfo,
 } from "./npm-package-fallback.js";
+import { dropSupersededDelegationExtensions } from "./superseded-extensions.js";
 
 type RuntimeModel = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
+
+/**
+ * The prompt section an agent identity adds, or undefined when the agent has no body.
+ * The name is stated so the model can tell which specialist it is running as.
+ */
+function agentPromptBlock(agent: SessionAgentIdentity | undefined): string | undefined {
+  const body = agent?.systemPrompt?.trim();
+  if (!agent || !body) return undefined;
+  return `## Agent identity: ${agent.name}\n\n${body}`;
+}
 
 function requireModel(modelRuntime: ModelRuntime, provider: string, modelId: string): RuntimeModel {
   const model = modelRuntime.getModel(provider, modelId);
@@ -212,6 +225,8 @@ interface ManagedSessionRecord {
   archivedAt: string | undefined;
   preview: string | undefined;
   config: SessionConfig | undefined;
+  /** The agent identity the thread started with, from the catalog or the session's own entry. */
+  agentName: string | undefined;
   runningRunId: string | undefined;
   cancellationRequested: boolean;
   /** A prompt is in Pi's pre-run steps (input handlers, auth, before_agent_start). */
@@ -379,7 +394,9 @@ export class SessionSupervisor {
     workspace: WorkspaceRef,
     sessionManager: SessionManager,
     extensionFlagValues: ExtensionFlagValues | undefined,
+    agent?: SessionAgentIdentity,
   ): PiCreateAgentSessionOptions {
+    const agentPrompt = agentPromptBlock(agent);
     const createOptions: PiCreateAgentSessionOptions = {
       cwd: workspace.path,
       sessionManager,
@@ -387,6 +404,10 @@ export class SessionSupervisor {
         ? { extensionFlagValues: new Map(Object.entries(extensionFlagValues)) }
         : {}),
       resourceLoaderOptions: {
+        ...(agentPrompt
+          ? { appendSystemPromptOverride: (base: string[]) => [...base, agentPrompt] }
+          : {}),
+        extensionsOverride: dropSupersededDelegationExtensions,
         extensionFactories: [
           ...this.piAddons,
           ...this.builtinExtensions,
@@ -744,12 +765,20 @@ export class SessionSupervisor {
   ): Promise<SessionSnapshot> {
     await this.registerWorkspaceRef(workspace);
 
-    const initialModel = options?.initialModel;
+    const agent = options?.agent;
+    // An explicit per-thread model wins; an agent's own model only fills the gap.
+    const initialModel =
+      options?.initialModel ??
+      (agent?.provider && agent.modelId
+        ? { provider: agent.provider, modelId: agent.modelId }
+        : undefined);
+    const thinkingLevel = options?.initialThinkingLevel ?? agent?.thinkingLevel;
     const createOptions: PiCreateAgentSessionOptions = {
       ...this.baseCreateOptions(
         workspace,
         SessionManager.create(workspace.path),
         options?.extensionFlagValues,
+        agent,
       ),
       ...(initialModel
         ? {
@@ -757,13 +786,12 @@ export class SessionSupervisor {
               requireModel(modelRuntime, initialModel.provider, initialModel.modelId),
           }
         : {}),
-      ...(options?.initialThinkingLevel
+      ...(thinkingLevel
         ? {
-            thinkingLevel: options.initialThinkingLevel as NonNullable<
-              CreateAgentSessionOptions["thinkingLevel"]
-            >,
+            thinkingLevel: thinkingLevel as NonNullable<CreateAgentSessionOptions["thinkingLevel"]>,
           }
         : {}),
+      ...(agent?.tools && agent.tools.length > 0 ? { tools: [...agent.tools] } : {}),
     };
 
     const runtime = await this.createAgentSessionRuntimeImpl(createOptions);
@@ -774,7 +802,11 @@ export class SessionSupervisor {
       runtime,
       options?.title ?? deriveWorkspaceTitle(workspace),
     );
+    record.agentName = agent?.name;
     session.sessionManager.appendSessionInfo(record.title);
+    if (agent) {
+      session.sessionManager.appendCustomEntry(AGENT_IDENTITY_CUSTOM_TYPE, { name: agent.name });
+    }
     forcePersistPiSession(session.sessionManager);
     record.config = deriveSessionConfig(session.sessionManager);
     const sessionFile = record.sessionFile ?? session.sessionManager.getSessionFile();
@@ -885,8 +917,17 @@ export class SessionSupervisor {
     const forkConfig = deriveSessionConfig(branchedManager);
     const forkProvider = forkConfig?.provider;
     const forkModelId = forkConfig?.modelId;
+    const inheritedAgentName = agentNameFromBranch(branchedManager.getBranch());
     const createOptions: PiCreateAgentSessionOptions = {
-      ...this.baseCreateOptions(targetWorkspace, branchedManager, options.extensionFlagValues),
+      ...this.baseCreateOptions(
+        targetWorkspace,
+        branchedManager,
+        options.extensionFlagValues,
+        options.agent,
+      ),
+      ...(options.agent?.tools && options.agent.tools.length > 0
+        ? { tools: [...options.agent.tools] }
+        : {}),
       ...(forkProvider && forkModelId
         ? {
             // A model the source session used may not exist in the target
@@ -909,6 +950,13 @@ export class SessionSupervisor {
 
     const title = options.title ?? sourceRecord.title;
     const record = this.createRecord(targetWorkspace, runtime, title);
+    record.agentName = options.agent?.name ?? inheritedAgentName ?? sourceRecord.agentName;
+    // A fork keeps the source branch's identity entry; only a fork that lost it re-writes one.
+    if (options.agent && inheritedAgentName === undefined) {
+      session.sessionManager.appendCustomEntry(AGENT_IDENTITY_CUSTOM_TYPE, {
+        name: options.agent.name,
+      });
+    }
     forcePersistPiSession(session.sessionManager);
     record.config = deriveSessionConfig(session.sessionManager);
     const sessionFile = record.sessionFile ?? session.sessionManager.getSessionFile();
@@ -1787,6 +1835,10 @@ export class SessionSupervisor {
     record.stoppedReplyId = sessionEntry.stoppedReplyId;
     record.preview = sessionEntry.previewSnippet ?? undefined;
     record.config = deriveSessionConfig(session.sessionManager);
+    // The session file is authoritative once it carries the entry; the catalog value only
+    // covers sessions written before pi-gui recorded identities.
+    record.agentName =
+      agentNameFromBranch(session.sessionManager.getBranch()) ?? sessionEntry.agentName;
     record.closed = false;
     record.leasePath = leasePath;
 
@@ -1820,6 +1872,7 @@ export class SessionSupervisor {
       archivedAt: undefined,
       preview: undefined,
       config: deriveSessionConfig(session.sessionManager),
+      agentName: undefined,
       runningRunId: undefined,
       cancellationRequested: false,
       promptStarting: false,
@@ -3077,6 +3130,7 @@ export class SessionSupervisor {
       status: snapshot.status,
       ...(snapshot.archivedAt !== undefined ? { archivedAt: snapshot.archivedAt } : {}),
       ...(snapshot.preview !== undefined ? { previewSnippet: snapshot.preview } : {}),
+      ...(record.agentName !== undefined ? { agentName: record.agentName } : {}),
       ...(record.sessionFile ? { sessionFilePath: record.sessionFile } : {}),
     });
     if (record.sessionFile) {
@@ -3206,6 +3260,7 @@ export class SessionSupervisor {
         : undefined;
     const previewSnippet = runtimeSnapshot?.preview ?? previewFromSessionInfo(info);
     const archivedAt = runtimeSnapshot?.archivedAt ?? existingEntry?.archivedAt;
+    const agentName = runtimeSnapshot?.agentName ?? existingEntry?.agentName;
     const titleFromInfo = titleFromSessionInfo(info);
     const entry: SessionCatalogSnapshot["sessions"][number] = {
       sessionRef: {
@@ -3221,6 +3276,9 @@ export class SessionSupervisor {
     };
     if (archivedAt) {
       entry.archivedAt = archivedAt;
+    }
+    if (agentName) {
+      entry.agentName = agentName;
     }
     if (previewSnippet !== undefined) {
       entry.previewSnippet = previewSnippet;

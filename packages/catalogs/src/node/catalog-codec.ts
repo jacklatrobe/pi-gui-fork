@@ -97,6 +97,7 @@ function isSessionEntry(value: unknown): value is SessionCatalogEntry {
       "previewSnippet",
       "sessionFilePath",
       "stoppedReplyId",
+      "agentName",
     ]) &&
     isRecord(value.sessionRef) &&
     hasStrings(value.sessionRef, ["workspaceId", "sessionId"]) &&
