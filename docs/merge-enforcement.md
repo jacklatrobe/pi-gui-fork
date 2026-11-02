@@ -24,8 +24,10 @@ its name preserves the existing branch requirement. Matrix jobs do not use
 
 Adding a workflow is not sufficient to enforce merging. After this workflow has
 run successfully on a real pull request, add the exact check name `CI required`
-to the existing `main` branch protection or ruleset. Preserve the existing five
-required checks and the requirement that the branch be up to date. Bind checks
+to the existing `main` branch protection or ruleset. Preserve the existing
+required checks — `typecheck`, `coverage`, `windows-quality`, `website-build`,
+`desktop-core`, `desktop-package-linux`, `desktop-package-windows` — and the
+requirement that the branch be up to date. Bind checks
 to the observed GitHub Actions app identity where supported; inspect bypass
 permissions separately. Do not replace existing rules with a partial payload.
 
