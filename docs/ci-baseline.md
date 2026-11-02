@@ -68,7 +68,24 @@ action runtimes are a separate pin.
 The website build, Linux installation/package and
 Windows package jobs remain separate. `pnpm check` alone does not prove these
 surfaces. Real-provider and native desktop verification retain their own lanes.
-The final `CI required` job accepts only success from all five existing jobs.
+
+Two additional required jobs widen coverage beyond the Ubuntu baseline:
+
+- `coverage` runs `pnpm test:coverage`: it builds the shared packages, runs every
+  `node:test` lane (catalogs, pi-sdk-driver, extension-ui) under Node's built-in
+  `--experimental-test-coverage`, merges the lcov output, prints the summary to
+  the job summary, uploads the report, and fails when line, branch or function
+  coverage drops below the floor in `scripts/check-coverage.mjs`. Renderer and
+  main coverage stay owned by the Electron core lane; this job measures the
+  Node-testable logic only.
+- `windows-quality` runs the cross-platform guards and shared-package tests on
+  `windows-latest`. Windows-specific regressions (path separators in guard
+  reports, atomic-rename contention) are invisible on Ubuntu, so this lane keeps
+  the guards honest on the platform most contributors develop against. It does
+  not run `test:desktop-unit`, whose symlink fixtures require a privilege the
+  hosted runner may not grant.
+
+The `CI required` job accepts only success from all required jobs.
 See [merge enforcement](merge-enforcement.md) for its contract and remote
 activation status. Repository branch rules must require this result before it
 blocks merges; local tests alone do not establish remote enforcement.

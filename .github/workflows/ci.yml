@@ -16,6 +16,8 @@ jobs:
     if: ${{ always() }}
     needs:
       - typecheck
+      - coverage
+      - windows-quality
       - website-build
       - desktop-core
       - desktop-package-linux
@@ -63,6 +65,74 @@ jobs:
 
       - name: Verify release configuration
         run: pnpm verify:release-config
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Builds shared packages, runs every node:test lane with Node's built-in
+      # coverage, merges the lcov output, prints the summary to the job summary,
+      # and fails when line/branch/function coverage drops below the floor.
+      - name: Node-lane coverage with floor
+        run: pnpm test:coverage
+
+      - name: Upload coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: node-coverage-${{ github.sha }}
+          path: coverage/
+          retention-days: 14
+          if-no-files-found: error
+
+  windows-quality:
+    name: windows-quality
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: pnpm build:shared
+
+      # Guards and shared-package tests carry Windows-specific regressions
+      # (path separators, atomic rename contention) that the Ubuntu lane cannot see.
+      - name: Architecture boundaries
+        run: pnpm check:architecture
+
+      - name: Cross-platform guard tests
+        run: pnpm test:guards
+
+      - name: Shared package tests
+        run: |
+          pnpm --filter @pi-gui/catalogs test
+          pnpm --filter @pi-gui/pi-sdk-driver test
+          pnpm --filter @pi-gui/extension-ui test
 
   website-build:
     runs-on: ubuntu-latest

@@ -2,6 +2,8 @@ import { pathToFileURL } from "node:url";
 
 export const requiredJobs = [
   "typecheck",
+  "coverage",
+  "windows-quality",
   "website-build",
   "desktop-core",
   "desktop-package-linux",

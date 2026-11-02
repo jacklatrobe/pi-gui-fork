@@ -13,6 +13,7 @@ release-*/
 /.pnpm-store/
 playwright-report/
 test-results/
+coverage/
 .claude/worktrees/
 .codex/worktrees/
 .DS_Store
