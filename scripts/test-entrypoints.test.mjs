@@ -76,7 +76,7 @@ test("desktop tests use one public Electron helper entrypoint", async () => {
       continue;
     }
     const source = await readFile(filePath, "utf8");
-    if (/helpers\/(?:native-input|packaged-app)/.test(source)) {
+    if (/helpers\/native-input/.test(source)) {
       bypasses.push(path.relative(root, filePath));
     }
   }

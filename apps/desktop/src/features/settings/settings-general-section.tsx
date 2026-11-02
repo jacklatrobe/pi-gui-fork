@@ -72,7 +72,7 @@ export function SettingsGeneralSection({
           <input
             aria-label={t("settings.general.shell.label")}
             className="settings-text-input"
-            placeholder="/bin/zsh"
+            placeholder="/bin/bash"
             spellCheck={false}
             type="text"
             value={terminalShellDraft}

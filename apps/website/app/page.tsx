@@ -58,7 +58,7 @@ const showcase = [
   {
     eyebrow: "Keyboard",
     title: "Everything is a keystroke away",
-    body: "⌘K searches chats, workspaces and actions. ⌘P jumps to any file. Ctrl-Tab flips between recent threads, and ⌘1 to ⌘9 jump to threads in the sidebar. On Linux and Windows, use Ctrl.",
+    body: "Ctrl+K searches chats, workspaces and actions. Ctrl+P jumps to any file. Ctrl-Tab flips between recent threads, and Ctrl+1 to Ctrl+9 jump to threads in the sidebar.",
     shot: "palette",
     width: 1440,
     height: 1280,
