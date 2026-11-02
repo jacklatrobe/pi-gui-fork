@@ -19,7 +19,7 @@ const technicalCopy = new Set([
   "--api-key",
   "/v1",
   "~/.pi/agent/models.json",
-  "/bin/zsh",
+  "/bin/bash",
 ]);
 const attributes = new Set([
   "title",
