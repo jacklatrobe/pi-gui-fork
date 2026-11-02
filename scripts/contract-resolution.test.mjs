@@ -15,7 +15,9 @@ test("SDK driver implements canonical SessionDriver and cannot omit tree operati
   assert.equal(config.error, undefined);
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, directory);
   assert.deepEqual(parsed.errors, []);
-  const file = path.join(directory, "src/contract-proof.ts");
+  // TypeScript normalizes program file names to POSIX separators on every
+  // platform, so the in-memory virtual file must be spelled the same way.
+  const file = path.join(directory, "src/contract-proof.ts").split(path.sep).join("/");
   const text = `
 import type { SessionDriver } from "@pi-gui/session-driver";
 import type { PiSdkDriver } from "./pi-sdk-driver.js";
@@ -46,7 +48,7 @@ const rejected: SessionDriver = incomplete;
     .declarations[0];
   assert.equal(
     declaration.getSourceFile().fileName,
-    path.join(root, "packages/session-driver/dist/types.d.ts"),
+    path.join(root, "packages/session-driver/dist/types.d.ts").split(path.sep).join("/"),
   );
 });
 

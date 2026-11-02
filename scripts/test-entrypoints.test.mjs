@@ -93,9 +93,12 @@ test("desktop tests use one public Electron helper entrypoint", async () => {
 test("the public Electron helper loads through Playwright and the marketing script loader", async () => {
   const desktopConfig = path.join(root, "apps/desktop/playwright.config.ts");
   const smokeSpec = path.join(root, "apps/desktop/tests/core/smoke.spec.ts");
+  // Playwright treats positional filters as regexes matched against POSIX-shaped
+  // file paths; a raw Windows path with backslashes matches nothing.
+  const smokeFilter = path.relative(root, smokeSpec).split(path.sep).join("/");
   const result = spawnSync(
     process.execPath,
-    [require.resolve("@playwright/test/cli"), "test", "-c", desktopConfig, smokeSpec, "--list"],
+    [require.resolve("@playwright/test/cli"), "test", "-c", desktopConfig, smokeFilter, "--list"],
     {
       cwd: root,
       env: { ...process.env, PI_APP_TEST_MODE: "background" },

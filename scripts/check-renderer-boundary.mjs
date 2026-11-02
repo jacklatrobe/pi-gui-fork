@@ -15,9 +15,12 @@ const hostOnlyEntrypoints = new Set([
   "@pi-gui/extension-ui/transport",
   "@pi-gui/extension-ui/browser",
 ]);
+// Reported locations stay POSIX-shaped on every platform so guards, tests and CI
+// logs read the same on Windows, Linux and macOS.
+const toPosix = (value) => value.split(path.sep).join("/");
 const isHostOnlyEntrypointFile = (root, file) =>
   /^packages\/extension-ui\/(?:src|dist)\/(?:transport|browser)\.[cm]?[jt]sx?$/.test(
-    path.relative(root, file).split(path.sep).join("/"),
+    toPosix(path.relative(root, file)),
   );
 const sourceExtensions = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"];
 const isInside = (directory, file) => {
@@ -80,7 +83,7 @@ export function checkRendererBoundary(root) {
     );
     const fail = (node, reason) => {
       const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
-      failures.push(`${path.relative(root, file)}:${line + 1}: ${reason}`);
+      failures.push(`${toPosix(path.relative(root, file))}:${line + 1}: ${reason}`);
     };
     const inspect = (expression, repair = "Use the preload API instead.") => {
       if (!expression || !ts.isStringLiteralLike(expression)) {
@@ -133,12 +136,12 @@ export function checkRendererBoundary(root) {
       if (isHostOnlyEntrypointFile(root, target)) {
         fail(
           expression,
-          `Forbidden renderer runtime import of '${path.relative(root, target)}' through '${specifier}'. Use an explicit type-only import.`,
+          `Forbidden renderer runtime import of '${toPosix(path.relative(root, target))}' through '${specifier}'. Use an explicit type-only import.`,
         );
       } else if (isInside(main, target)) {
         fail(
           expression,
-          `Renderer reaches main/preload implementation '${path.relative(root, target)}'. ${repair}`,
+          `Renderer reaches main/preload implementation '${toPosix(path.relative(root, target))}'. ${repair}`,
         );
       } else if (isInside(root, target) && !target.includes(`${path.sep}node_modules${path.sep}`)) {
         if (/\.d\.[cm]?ts$/.test(target)) {

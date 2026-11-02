@@ -5,6 +5,45 @@ import { dirname } from "node:path";
 /** Suffix of the transient files writeFileAtomic creates before renaming into place. */
 export const TMP_SUFFIX = ".tmp";
 
+/**
+ * Windows replaces an existing file with MoveFileEx, which can transiently fail
+ * with EPERM/EACCES/EBUSY when a concurrent writer or antivirus holds the target.
+ * A short bounded retry keeps the rename atomic (the temp file is only ever
+ * renamed, never unlinked-then-written) while riding out that contention.
+ * POSIX rename never returns these codes, so behavior there is unchanged.
+ */
+const TRANSIENT_RENAME_ERROR_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+export const RENAME_MAX_ATTEMPTS = 12;
+const RENAME_BACKOFF_MS = 5;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+export type RenameFn = (oldPath: string, newPath: string) => Promise<void>;
+
+/**
+ * Rename `tmpPath` over `filePath`, retrying only transient filesystem errors.
+ * `renameFn` and `sleepFn` are injectable so the retry policy is unit-testable
+ * on every platform, including the POSIX lanes that never hit the error.
+ */
+export async function renameIntoPlace(
+  tmpPath: string,
+  filePath: string,
+  renameFn: RenameFn = rename,
+  sleepFn: (ms: number) => Promise<void> = sleep,
+): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await renameFn(tmpPath, filePath);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException | undefined)?.code;
+      if (attempt >= RENAME_MAX_ATTEMPTS || !code || !TRANSIENT_RENAME_ERROR_CODES.has(code)) {
+        throw error;
+      }
+      await sleepFn(RENAME_BACKOFF_MS * attempt);
+    }
+  }
+}
+
 let tmpCounter = 0;
 
 /**
@@ -38,7 +77,7 @@ export async function writeFileAtomic(filePath: string, data: string | Uint8Arra
   }
 
   try {
-    await rename(tmpPath, filePath);
+    await renameIntoPlace(tmpPath, filePath);
   } catch (error) {
     await rm(tmpPath, { force: true }).catch(() => {});
     throw error;
