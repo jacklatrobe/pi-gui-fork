@@ -8,7 +8,13 @@
 
 import { realpathSync } from "node:fs";
 
-const stripWindowsPrefix = (value) => value.replace(/^\\\\\?\\/, "");
+// The native realpath resolves Windows 8.3 short names (RUNNER~1 -> runneradmin);
+// the JS fallback can return the short spelling, which would make two names for
+// one directory compare unequal. Native is available on Windows and macOS.
+const realpath = realpathSync.native ?? realpathSync;
+
+const stripWindowsPrefix = (value) =>
+  value.replace(/^\\\\\?\\UNC\\/i, "\\\\").replace(/^\\\\\?\\/i, "");
 const trimTrailingSeparator = (value) => value.replace(/[/\\]+$/, "");
 
 /** Render any path with POSIX separators for stable messages. */
@@ -21,7 +27,7 @@ export const toPosix = (value) => value.split(/[\\/]+/).join("/");
 export function resolvedPath(value) {
   let resolved = stripWindowsPrefix(String(value));
   try {
-    resolved = stripWindowsPrefix(realpathSync(resolved));
+    resolved = stripWindowsPrefix(realpath(resolved));
   } catch {
     // Missing paths (fixtures mid-creation) compare as given.
   }

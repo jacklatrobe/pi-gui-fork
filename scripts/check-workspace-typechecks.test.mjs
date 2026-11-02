@@ -18,7 +18,7 @@ test("pnpm discovery catches a new workspace without a typecheck command", () =>
   for (const scripts of [{}, { typecheck: " " }]) {
     writeFileSync(manifest, JSON.stringify({ name: "new-workspace", scripts }));
     const result = checkWorkspaceTypechecks(root, process.env.npm_execpath);
-    assert.equal(result.count, 1);
+    assert.equal(result.count, 1, `discovered: ${JSON.stringify(result.paths)}`);
     assert.match(
       result.failures.join("\n"),
       /modules\/new-workspace\/package.json: missing scripts.typecheck/,
@@ -28,5 +28,6 @@ test("pnpm discovery catches a new workspace without a typecheck command", () =>
     manifest,
     JSON.stringify({ name: "new-workspace", scripts: { typecheck: "tsc --noEmit" } }),
   );
-  assert.deepEqual(checkWorkspaceTypechecks(root, process.env.npm_execpath).failures, []);
+  const complete = checkWorkspaceTypechecks(root, process.env.npm_execpath);
+  assert.deepEqual(complete.failures, [], `discovered: ${JSON.stringify(complete.paths)}`);
 });

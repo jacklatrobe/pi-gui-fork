@@ -24,7 +24,11 @@ export function checkWorkspaceTypechecks(root, pnpmPath) {
       );
     }
   }
-  return { failures, count: workspaces.length };
+  return {
+    failures,
+    count: workspaces.length,
+    paths: workspaces.map((workspace) => workspace.path),
+  };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
