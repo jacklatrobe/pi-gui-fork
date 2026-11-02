@@ -3,6 +3,7 @@ import { isBuiltin } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { toPosix } from "./path-identity.mjs";
 
 const runtimePackages = new Set([
   "electron",
@@ -17,7 +18,6 @@ const hostOnlyEntrypoints = new Set([
 ]);
 // Reported locations stay POSIX-shaped on every platform so guards, tests and CI
 // logs read the same on Windows, Linux and macOS.
-const toPosix = (value) => value.split(path.sep).join("/");
 const isHostOnlyEntrypointFile = (root, file) =>
   /^packages\/extension-ui\/(?:src|dist)\/(?:transport|browser)\.[cm]?[jt]sx?$/.test(
     toPosix(path.relative(root, file)),

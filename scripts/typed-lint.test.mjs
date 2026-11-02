@@ -13,6 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { ESLint } from "eslint";
+import { resolvedPath, samePath, toPosix } from "./path-identity.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 // lintText replaces only the in-memory contents of existing project members.
@@ -120,7 +121,7 @@ async function workspaceLintFailures(workspaceRoot) {
       cwd: workspaceRoot,
       encoding: "utf8",
     }),
-  ).filter((project) => realpathSync(project.path) !== realpathSync(workspaceRoot));
+  ).filter((project) => !samePath(project.path, workspaceRoot));
   assert.ok(projects.length, "No workspaces discovered; cannot prove typed lint coverage.");
   const eslint = new ESLint({ cwd: workspaceRoot });
   const failures = [];
@@ -133,7 +134,7 @@ async function workspaceLintFailures(workspaceRoot) {
     );
     if (missing.length)
       failures.push(
-        `${path.relative(workspaceRoot, project.path).split(path.sep).join("/")}: add a typed project in eslint.config.mjs; missing ${missing.join(", ")}.`,
+        `${toPosix(path.relative(resolvedPath(workspaceRoot), resolvedPath(project.path)))}: add a typed project in eslint.config.mjs; missing ${missing.join(", ")}.`,
       );
   }
   return failures;

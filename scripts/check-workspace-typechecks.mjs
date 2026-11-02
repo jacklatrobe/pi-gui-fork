@@ -2,9 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-// Report workspace paths POSIX-shaped so the message is identical on every OS.
-const toPosix = (value) => value.split(path.sep).join("/");
+import { resolvedPath, samePath, toPosix } from "./path-identity.mjs";
 
 export function checkWorkspaceTypechecks(root, pnpmPath) {
   root = realpathSync(root);
@@ -15,14 +13,14 @@ export function checkWorkspaceTypechecks(root, pnpmPath) {
       encoding: "utf8",
     }),
   );
-  const workspaces = projects.filter((project) => realpathSync(project.path) !== root);
+  const workspaces = projects.filter((project) => !samePath(project.path, root));
   if (!workspaces.length) throw new Error("No workspaces discovered; refusing to skip typechecks.");
   const failures = [];
   for (const workspace of workspaces) {
     const manifest = JSON.parse(readFileSync(path.join(workspace.path, "package.json"), "utf8"));
     if (typeof manifest.scripts?.typecheck !== "string" || !manifest.scripts.typecheck.trim()) {
       failures.push(
-        `${toPosix(path.relative(root, workspace.path))}/package.json: missing scripts.typecheck. Add a typecheck command so this workspace participates in CI.`,
+        `${toPosix(path.relative(resolvedPath(root), resolvedPath(workspace.path)))}/package.json: missing scripts.typecheck. Add a typecheck command so this workspace participates in CI.`,
       );
     }
   }
