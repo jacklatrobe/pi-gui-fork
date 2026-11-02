@@ -8,12 +8,11 @@ import {
   selectSidePanel,
 } from "../helpers/electron-app";
 
-const isMac = process.platform === "darwin";
-/** Control on macOS, where Command switches threads, and Alt elsewhere. */
-const tabModifier = isMac ? "Control" : "Alt";
-const tabLabel = (slot: number) => `${isMac ? "⌃" : "Alt+"}${slot}`;
+/** Alt selects side panel tabs; Ctrl switches threads. */
+const tabModifier = "Alt";
+const tabLabel = (slot: number) => `Alt+${slot}`;
 
-test("Control or Alt with 1-9 selects side panel tabs while Cmd or Ctrl keeps switching threads", async () => {
+test("Alt with 1-9 selects side panel tabs while Ctrl keeps switching threads", async () => {
   test.setTimeout(90_000);
   const userDataDir = await makeUserDataDir();
   const workspacePath = await makeWorkspace("side-panel-tab-shortcuts");
@@ -85,7 +84,7 @@ test("Control or Alt with 1-9 selects side panel tabs while Cmd or Ctrl keeps sw
         },
         { keyCode, modifiers },
       );
-    const mainModifier = isMac ? "control" : "alt";
+    const mainModifier = "alt";
     await window.evaluate(() => {
       const review = document.querySelector('[data-testid="workbench-tab-changes"]');
       const record = window as unknown as { reviewSelected?: boolean };
@@ -119,7 +118,7 @@ test("Control or Alt with 1-9 selects side panel tabs while Cmd or Ctrl keeps sw
         },
         { type, keyCode, modifiers },
       );
-    const modifierKeyCode = isMac ? "Control" : "Alt";
+    const modifierKeyCode = "Alt";
     await sendKey("keyDown", modifierKeyCode, [mainModifier]);
     await expect(tabs.locator("[data-tab-shortcut]")).toHaveCount(3);
     await sendKey("keyDown", "3", [mainModifier]);
@@ -128,7 +127,7 @@ test("Control or Alt with 1-9 selects side panel tabs while Cmd or Ctrl keeps sw
     await sendKey("keyUp", modifierKeyCode, []);
     await expect(tabs.locator("[data-tab-shortcut]")).toHaveCount(0);
 
-    // Cmd+1-9 on macOS and Ctrl+1-9 elsewhere still switch threads.
+    // Ctrl+1-9 still switches threads.
     await composer.click();
     await window.keyboard.press(desktopShortcut("2"));
     await expect(title).toHaveText("Tab Alpha");
@@ -136,7 +135,7 @@ test("Control or Alt with 1-9 selects side panel tabs while Cmd or Ctrl keeps sw
     await window.keyboard.press(desktopShortcut(","));
     await window.getByRole("button", { name: "Keyboard shortcuts" }).click();
     const row = window.locator(".settings-row", { hasText: "Switch to side panel tab" });
-    await expect(row.locator("kbd")).toHaveText([isMac ? "⌃" : "Alt", "1–9"]);
+    await expect(row.locator("kbd")).toHaveText(["Alt", "1–9"]);
   } finally {
     await harness.close();
   }

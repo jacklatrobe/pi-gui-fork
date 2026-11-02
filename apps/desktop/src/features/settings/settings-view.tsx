@@ -29,7 +29,6 @@ interface SettingsViewProps {
   readonly workspace?: WorkspaceRecord;
   readonly runtime?: RuntimeSnapshot;
   readonly section: SettingsSection;
-  readonly platform: NodeJS.Platform;
   /** Shown beside the page title, such as the workspace a page edits. */
   readonly headerAccessory?: ReactNode;
   readonly onSelectSection: (section: SettingsSection) => void;
@@ -68,7 +67,6 @@ export function SettingsView({
   workspace,
   runtime,
   section,
-  platform,
   headerAccessory,
   onSelectSection,
   notificationPreferences,
@@ -163,7 +161,7 @@ export function SettingsView({
             />
           ) : null}
 
-          {section === "shortcuts" ? <SettingsShortcutsSection platform={platform} /> : null}
+          {section === "shortcuts" ? <SettingsShortcutsSection /> : null}
 
           {section === "providers" ? (
             <SettingsProvidersSection

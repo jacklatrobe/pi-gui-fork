@@ -494,9 +494,6 @@ function defaultShellForPlatform(): string {
   if (process.platform === "win32") {
     return process.env.ComSpec || "cmd.exe";
   }
-  if (process.platform === "darwin") {
-    return "/bin/zsh";
-  }
   return "/bin/bash";
 }
 

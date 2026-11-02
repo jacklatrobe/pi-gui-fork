@@ -13,8 +13,8 @@ Settings is one shell: a sidebar with Back to app, a Search box, and grouped pag
 ## How to get to it (user POV)
 
 - Click Settings in the sidebar; click Back to app to leave.
-- Cmd-K lists Settings and "Settings: <page>" entries; the sidebar Skills and Extensions buttons open Customize inside this shell.
-- Use the app's Settings shortcut (Meta+, on macOS; Control+, elsewhere), covered separately by `composer-controls.spec.ts`.
+- Ctrl+K lists Settings and "Settings: <page>" entries; the sidebar Skills and Extensions buttons open Customize inside this shell.
+- Use the app's Settings shortcut (Control+,), covered separately by `composer-controls.spec.ts`.
 
 ## Driving it with Playwright
 
@@ -31,4 +31,4 @@ Preconditions: isolated built app; no provider login needed.
 - A changed checkbox in one window does not prove persistence.
 - The smoke finds Settings by its English labels and does not set a language. With Language on "Follow system", a host whose OS language is Chinese would show Chinese labels that the smoke's selectors do not match (not yet tried); run it under an English OS language.
 - The smoke preserves its isolated profile as evidence; it does not modify the user's profile.
-- Notification permission tests use OS-boundary doubles in core. They do not prove real macOS authorization.
+- Notification permission tests use OS-boundary doubles in core. They do not prove real OS authorization.

@@ -26,7 +26,7 @@ interface UseThreadSwitcherOptions {
 /**
  * VS Code style Ctrl-Tab: hold Control, press Tab to step through threads in
  * most-recently-used order (Shift-Tab steps back), release Control to open the
- * selection. Ctrl-Tab stays Control on macOS, like VS Code and browsers.
+ * selection.
  */
 export function useThreadSwitcher(options: UseThreadSwitcherOptions) {
   const [state, setState] = useState<ThreadSwitcherState | null>(null);

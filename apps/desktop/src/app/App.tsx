@@ -230,7 +230,7 @@ export default function App() {
   const extensionViews = useExtensionViews({ api, target: workbenchTarget });
   const workbench = useWorkbench({ api, target: workbenchTarget });
   // Tracked while the panel is closed too, so a chord that opens it shows the hints.
-  const sidePanelTabHintsVisible = useSidePanelTabHintsVisible(api?.platform ?? "linux");
+  const sidePanelTabHintsVisible = useSidePanelTabHintsVisible();
   const workbenchTargetRef = useRef(workbenchTarget);
   workbenchTargetRef.current = workbenchTarget;
   const extensionHostActions = useExtensionHostActions({
@@ -669,7 +669,7 @@ export default function App() {
   }, [rootWorkspaceOptions]);
 
   const primarySidebarToggleVisible = canTogglePrimarySidebar(snapshot?.activeView);
-  const sidebarToggleShortcutLabel = api ? getDesktopShortcutLabel(api.platform, "B") : "";
+  const sidebarToggleShortcutLabel = api ? getDesktopShortcutLabel("B") : "";
 
   const setActiveView = (view: AppView) => {
     if (!api) return;
@@ -1192,7 +1192,6 @@ export default function App() {
                     }
                     scheduledOrigins={scheduledOrigins}
                     annotations={transcriptAnnotations}
-                    platform={api?.platform ?? "linux"}
                   />
                 </div>
               </section>
@@ -1343,7 +1342,6 @@ export default function App() {
         {sidePanelVisible && selectedWorkspace && selectedSession ? (
           <Workbench
             view={workbench.view}
-            platform={api?.platform ?? "linux"}
             tabHintsVisible={sidePanelTabHintsVisible}
             onResize={workbenchWidth.setWidth}
             onTogglePanel={commands.toggleSidePanel}

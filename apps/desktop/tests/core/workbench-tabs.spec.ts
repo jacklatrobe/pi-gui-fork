@@ -78,16 +78,13 @@ async function addTool(window: Page, name: ToolName): Promise<void> {
 async function openSecondWindow(harness: DesktopHarness): Promise<Page> {
   const existing = new Set(harness.electronApp.windows());
   // The app's native New Window shortcut is handled in before-input-event.
-  await harness.electronApp.evaluate(
-    ({ BrowserWindow }, modifier) => {
-      BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
-        type: "keyDown",
-        keyCode: "n",
-        modifiers: [modifier, "shift"],
-      });
-    },
-    process.platform === "darwin" ? "meta" : "control",
-  );
+  await harness.electronApp.evaluate(({ BrowserWindow }, modifier) => {
+    BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
+      type: "keyDown",
+      keyCode: "n",
+      modifiers: [modifier, "shift"],
+    });
+  }, "control");
   await expect.poll(() => harness.electronApp.windows().length).toBe(existing.size + 1);
   const opened = harness.electronApp.windows().find((candidate) => !existing.has(candidate));
   if (!opened) throw new Error("Expected New Window to create a second desktop window");
@@ -194,16 +191,13 @@ test("Cmd/Ctrl+T opens the Add tab chooser, and a new shell from the terminal", 
   });
   // Native input passes through main's before-input-event, unlike Playwright's keydowns.
   const pressNewTab = () =>
-    harness.electronApp.evaluate(
-      ({ BrowserWindow }, modifier) => {
-        BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
-          type: "keyDown",
-          keyCode: "t",
-          modifiers: [modifier],
-        });
-      },
-      process.platform === "darwin" ? ("meta" as const) : ("control" as const),
-    );
+    harness.electronApp.evaluate(({ BrowserWindow }, modifier) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
+        type: "keyDown",
+        keyCode: "t",
+        modifiers: [modifier],
+      });
+    }, "control" as const);
   try {
     const window = await harness.firstWindow();
     await selectSession(window, TASK_A);

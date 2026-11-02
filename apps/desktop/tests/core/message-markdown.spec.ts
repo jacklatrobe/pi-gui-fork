@@ -38,7 +38,7 @@ const tableResponse = [
   "",
   "| Package | Platform | Architecture | Artifact | Checksum | Distribution channel |",
   "| --- | --- | --- | --- | --- | --- |",
-  `| desktop | macOS | arm64 | ${"pi-gui-release-artifact-".repeat(4)}.dmg | ${"abcdef0123456789".repeat(4)} | GitHub prerelease with automatic updates |`,
+  `| desktop | Linux | x64 | ${"pi-gui-release-artifact-".repeat(4)}.tar.gz | ${"abcdef0123456789".repeat(4)} | GitHub prerelease with automatic updates |`,
 ].join("\n");
 
 test("renders markdown formatting in assistant responses", async () => {

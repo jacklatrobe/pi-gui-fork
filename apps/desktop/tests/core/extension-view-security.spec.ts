@@ -154,16 +154,13 @@ test("two real windows share one task backend while their frame connections rema
     if (!firstUrl) throw new Error("Missing first frame URL");
     const existing = new Set(harness.electronApp.windows());
     // The native New Window shortcut is owned by before-input-event, as in multi-window.spec.
-    await harness.electronApp.evaluate(
-      ({ BrowserWindow }, modifier) => {
-        BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
-          type: "keyDown",
-          keyCode: "n",
-          modifiers: [modifier, "shift"],
-        });
-      },
-      process.platform === "darwin" ? "meta" : "control",
-    );
+    await harness.electronApp.evaluate(({ BrowserWindow }, modifier) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
+        type: "keyDown",
+        keyCode: "n",
+        modifiers: [modifier, "shift"],
+      });
+    }, "control");
     await expect.poll(() => harness.electronApp.windows().length).toBe(2);
     const second = harness.electronApp.windows().find((candidate) => !existing.has(candidate));
     if (!second) throw new Error("Expected second desktop window");

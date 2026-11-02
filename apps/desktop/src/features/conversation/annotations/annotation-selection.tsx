@@ -31,16 +31,16 @@ interface OpenEditor {
   readonly anchor: DOMRect;
 }
 
-function shortcutKeys(platform: NodeJS.Platform, key: string): readonly string[] {
-  return platform === "darwin" ? ["⌘", key] : ["Ctrl", key];
+function shortcutKeys(key: string): readonly string[] {
+  return ["Ctrl", key];
 }
 
-export function addToChatShortcutKeys(platform: NodeJS.Platform): readonly string[] {
-  return shortcutKeys(platform, "L");
+export function addToChatShortcutKeys(): readonly string[] {
+  return shortcutKeys("L");
 }
 
-function isAddToChatShortcut(event: KeyboardEvent, platform: NodeJS.Platform): boolean {
-  const modifier = platform === "darwin" ? event.metaKey && !event.ctrlKey : event.ctrlKey;
+function isAddToChatShortcut(event: KeyboardEvent): boolean {
+  const modifier = event.ctrlKey;
   return (
     modifier &&
     !event.altKey &&
@@ -144,11 +144,9 @@ function popoverLeft(preferred: number, width: number): number {
 export function useAnnotationSelection({
   paneRef,
   annotations,
-  platform,
 }: {
   readonly paneRef: { readonly current: HTMLElement | null };
   readonly annotations: TranscriptAnnotations | undefined;
-  readonly platform: NodeJS.Platform;
 }) {
   const [selection, setSelection] = useState<TranscriptSelection | null>(null);
   const [editor, setEditor] = useState<OpenEditor | null>(null);
@@ -221,7 +219,7 @@ export function useAnnotationSelection({
   useEffect(() => {
     if (!selection) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!isAddToChatShortcut(event, platform) || event.repeat || event.defaultPrevented) return;
+      if (!isAddToChatShortcut(event) || event.repeat || event.defaultPrevented) return;
       // Typing elsewhere (composer, terminal, search) keeps its own Ctrl+L.
       const active = document.activeElement;
       if (isTextEntry(active) && !active?.closest(".annotation-popover")) return;
@@ -231,7 +229,7 @@ export function useAnnotationSelection({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [addSelection, platform, selection]);
+  }, [addSelection, selection]);
 
   // A new annotation's marker is placed a frame after the add; the box then sits above it.
   const editorId = editor?.id;
@@ -258,7 +256,6 @@ export function useAnnotationSelection({
           anchor={selection.rect}
           // A different selection starts without the "Copied" confirmation.
           key={selection.quote}
-          platform={platform}
           quote={selection.quote}
           onAdd={addSelection}
         />
@@ -285,12 +282,10 @@ const COPIED_FEEDBACK_MS = 1200;
 
 function SelectionActions({
   anchor,
-  platform,
   quote,
   onAdd,
 }: {
   readonly anchor: DOMRect;
-  readonly platform: NodeJS.Platform;
   readonly quote: string;
   readonly onAdd: () => void;
 }) {
@@ -333,7 +328,7 @@ function SelectionActions({
         onClick={copy}
       >
         <span>{copied ? "Copied" : "Copy"}</span>
-        <ShortcutKeys keys={shortcutKeys(platform, "C")} />
+        <ShortcutKeys keys={shortcutKeys("C")} />
       </button>
       <span className="annotation-add__divider" aria-hidden="true" />
       <button
@@ -343,7 +338,7 @@ function SelectionActions({
         onClick={onAdd}
       >
         <span>Add to Chat</span>
-        <ShortcutKeys keys={addToChatShortcutKeys(platform)} />
+        <ShortcutKeys keys={addToChatShortcutKeys()} />
       </button>
     </div>
   );

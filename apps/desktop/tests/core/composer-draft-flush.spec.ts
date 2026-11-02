@@ -185,7 +185,7 @@ test("keeps an edit React has not committed yet when quitting", async () => {
 test("keeps a draft when the thread is archived by shortcut straight after typing", async () => {
   test.setTimeout(90_000);
   const harness = await launcher("draft-archive-shortcut")();
-  const modifier = process.platform === "darwin" ? "Meta" : "Control";
+  const modifier = "Control";
 
   try {
     const window = await harness.firstWindow();
@@ -214,7 +214,7 @@ test("keeps a draft when the thread is archived by shortcut straight after typin
 test("keeps the drafts of every window when quitting straight after typing", async () => {
   test.setTimeout(90_000);
   const launch = launcher("draft-shutdown-multi-window");
-  const nativeModifier = process.platform === "darwin" ? "meta" : "control";
+  const nativeModifier = "control";
   const drafts = { First: "Draft in the first window", Second: "Draft in the second window" };
 
   const harness = await launch();

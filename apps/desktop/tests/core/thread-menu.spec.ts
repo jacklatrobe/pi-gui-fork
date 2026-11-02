@@ -174,8 +174,7 @@ test("header and right-click menus match, show shortcuts, and Shift chords renam
   const keptTitle = "Thread that stays";
   const targetTitle = "Rename shortcut target thread";
   const renamedTitle = "Renamed via keyboard shortcut";
-  const isMac = process.platform === "darwin";
-  const modifier = isMac ? "Meta" : "Control";
+  const modifier = "Control";
 
   const harness = await launchDesktop(userDataDir, {
     initialWorkspaces: [workspacePath],
@@ -193,10 +192,10 @@ test("header and right-click menus match, show shortcuts, and Shift chords renam
     const rowItems = await menuItemTitles(rowMenu);
     await expect(
       rowMenu.getByRole("button", { name: "Rename thread" }).locator(".workspace-menu__shortcut"),
-    ).toHaveText(isMac ? "⇧⌘R" : "Ctrl+Shift+R");
+    ).toHaveText("Ctrl+Shift+R");
     await expect(
       rowMenu.getByRole("button", { name: "Archive thread" }).locator(".workspace-menu__shortcut"),
-    ).toHaveText(isMac ? "⇧⌘A" : "Ctrl+Shift+A");
+    ).toHaveText("Ctrl+Shift+A");
     await captureProof(window, "07-row-menu-hints.png");
     await window.keyboard.press("Escape");
     await expect(rowMenu).toHaveCount(0);
@@ -213,7 +212,7 @@ test("header and right-click menus match, show shortcuts, and Shift chords renam
     await row.getByRole("button", { name: `Archive ${targetTitle}` }).hover();
     const tooltip = row.locator(".session-row__tooltip");
     await expect(tooltip).toHaveCSS("opacity", "1");
-    await expect(tooltip.locator("kbd")).toHaveText(isMac ? "⇧⌘A" : "Ctrl+Shift+A");
+    await expect(tooltip.locator("kbd")).toHaveText("Ctrl+Shift+A");
     await captureProof(window, "09-archive-tooltip.png");
 
     // Rename from a collapsed sidebar opens it and focuses the field.

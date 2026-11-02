@@ -33,7 +33,7 @@ export function ThreadSwitcher({ state, onChoose }: ThreadSwitcherProps) {
               key={sessionThreadKey(entry)}
               role="option"
               onMouseDown={(event) => {
-                // Control-click opens the context menu on macOS; act on press instead.
+                // Act on press so the switcher resolves before focus moves.
                 event.preventDefault();
                 onChoose(index);
               }}

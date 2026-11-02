@@ -194,7 +194,7 @@ test("24 parallel children keep drafts and final states without per-token full-s
       BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
         type: "keyDown",
         keyCode: "n",
-        modifiers: [process.platform === "darwin" ? "meta" : "control", "shift"],
+        modifiers: ["control", "shift"],
       });
     });
     await expect.poll(() => harness.electronApp.windows().length).toBe(2);

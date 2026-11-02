@@ -83,7 +83,7 @@ test("Cmd/Ctrl+K finds chats and actions, Cmd/Ctrl+P opens files", async () => {
     await window.keyboard.press(desktopShortcut("J"));
     await expect(palette(window)).toHaveCount(0);
     await expect(window.getByTestId("integrated-terminal")).toBeVisible();
-    // Off macOS, Ctrl+K in the focused terminal stays with the shell.
+    // Ctrl+K in the focused terminal stays with the shell.
     await window.getByTestId("composer").click();
 
     // Side panel tools open from the palette; the same action hides the panel again.

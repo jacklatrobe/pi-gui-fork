@@ -322,65 +322,54 @@ export function sidePanelTabIndex(command: PiDesktopCommand | undefined): number
 }
 
 /**
- * The side panel tab modifier: Control on macOS, where Command switches threads,
- * and Alt elsewhere, where Control does. It must be the only modifier held.
+ * The side panel tab modifier is Alt, with no other modifier held.
  */
-export function sidePanelTabModifierHeld(
-  platform: NodeJS.Platform,
-  input: {
-    readonly meta: boolean;
-    readonly control: boolean;
-    readonly alt: boolean;
-    readonly shift: boolean;
-  },
-): boolean {
+export function sidePanelTabModifierHeld(input: {
+  readonly meta: boolean;
+  readonly control: boolean;
+  readonly alt: boolean;
+  readonly shift: boolean;
+}): boolean {
   if (input.shift || input.meta) return false;
-  return platform === "darwin" ? input.control && !input.alt : input.alt && !input.control;
+  return input.alt && !input.control;
 }
 
 /**
- * Control+1-9 on macOS and Alt+1-9 elsewhere select side panel tab N. Keypad
- * digits are left alone so Windows Alt codes keep typing characters.
+ * Alt+1-9 selects side panel tab N. Keypad digits are left alone so Windows
+ * Alt codes keep typing characters.
  */
-export function getSidePanelTabCommand(
-  platform: NodeJS.Platform,
-  input: {
-    readonly meta: boolean;
-    readonly control: boolean;
-    readonly alt: boolean;
-    readonly shift: boolean;
-    readonly key: string;
-    readonly code?: string;
-  },
-): PiDesktopCommand | undefined {
-  if (!sidePanelTabModifierHeld(platform, input) || input.code?.startsWith("Numpad")) {
+export function getSidePanelTabCommand(input: {
+  readonly meta: boolean;
+  readonly control: boolean;
+  readonly alt: boolean;
+  readonly shift: boolean;
+  readonly key: string;
+  readonly code?: string;
+}): PiDesktopCommand | undefined {
+  if (!sidePanelTabModifierHeld(input) || input.code?.startsWith("Numpad")) {
     return undefined;
   }
   const digit = input.code?.match(/^Digit([1-9])$/)?.[1] ?? input.key.match(/^[1-9]$/)?.[0];
   return digit ? SIDE_PANEL_TAB_COMMANDS[Number(digit) - 1] : undefined;
 }
 
-export function getSidePanelTabShortcutLabel(platform: NodeJS.Platform, slot: number): string {
-  return `${platform === "darwin" ? "⌃" : "Alt+"}${slot}`;
+export function getSidePanelTabShortcutLabel(slot: number): string {
+  return `Alt+${slot}`;
 }
 
-export function getDesktopShortcutLabel(platform: NodeJS.Platform, key: string): string {
-  return `${platform === "darwin" ? "⌘" : "Ctrl+"}${key.toUpperCase()}`;
+export function getDesktopShortcutLabel(key: string): string {
+  return `Ctrl+${key.toUpperCase()}`;
 }
 
 export function formatShortcut(
-  platform: NodeJS.Platform,
   key: string,
   modifiers: { readonly shift?: boolean; readonly alt?: boolean } = {},
 ): string {
-  if (platform === "darwin") {
-    return `${modifiers.alt ? "⌥" : ""}${modifiers.shift ? "⇧" : ""}⌘${key.toUpperCase()}`;
-  }
   return `Ctrl+${modifiers.alt ? "Alt+" : ""}${modifiers.shift ? "Shift+" : ""}${key.toUpperCase()}`;
 }
 
-export function getSidePanelToggleShortcutLabel(platform: NodeJS.Platform): string {
-  return platform === "darwin" ? "⌘⌥B" : "Ctrl+Alt+B";
+export function getSidePanelToggleShortcutLabel(): string {
+  return "Ctrl+Alt+B";
 }
 
 // A state push leaves out the model catalog (`runtimeByWorkspace`) when it is unchanged
@@ -483,12 +472,12 @@ export interface DesktopShortcutInput {
   readonly code?: string;
 }
 
-/** Command on macOS, Control on Windows and Linux. */
-export function platformShortcutModifier(
-  platform: NodeJS.Platform,
-  input: { readonly meta: boolean; readonly control: boolean },
-): boolean {
-  return platform === "darwin" ? input.meta : input.control;
+/** The shortcut modifier is Control on Windows and Linux. */
+export function platformShortcutModifier(input: {
+  readonly meta: boolean;
+  readonly control: boolean;
+}): boolean {
+  return input.control;
 }
 
 const MAX_QUEUED_DESKTOP_COMMANDS = 16;
@@ -670,8 +659,8 @@ export function getDesktopCommandFromShortcut(
 }
 
 /**
- * Callers accept palette commands only from the platform modifier, so macOS
- * Control+K and Control+P stay with text fields, and only from a first press.
+ * Callers accept palette commands only from the Control modifier, so Control+K
+ * and Control+P stay with text fields, and only from a first press.
  */
 export function isPaletteCommand(command: PiDesktopCommand | undefined): boolean {
   return (
@@ -680,11 +669,10 @@ export function isPaletteCommand(command: PiDesktopCommand | undefined): boolean
 }
 
 /**
- * Commands that act once per press and only from the platform modifier. macOS
- * Control chords stay with text fields, and off macOS the terminal keeps Control
- * chords. Holding Archive would otherwise archive each next thread in turn, and
- * holding Review would flicker the panel. New Tab is the exception in the terminal,
- * where the shell keeps it to open another terminal.
+ * Commands that act once per press and only from the Control modifier. The
+ * terminal keeps Control chords. Holding Archive would otherwise archive each
+ * next thread in turn, and holding Review would flicker the panel. New Tab is
+ * the exception in the terminal, where the shell keeps it to open another terminal.
  */
 export function isSinglePressCommand(command: PiDesktopCommand | undefined): boolean {
   return (
@@ -703,14 +691,11 @@ export function isCloseFocusedSurfaceShortcut(input: {
   readonly shift: boolean;
   readonly key: string;
   readonly code?: string;
-  readonly platform: NodeJS.Platform;
 }): boolean {
   if (input.alt || input.shift) {
     return false;
   }
-  const platformModifier = input.platform === "darwin" ? input.meta : input.control;
-  const otherModifier = input.platform === "darwin" ? input.control : input.meta;
-  if (!platformModifier || otherModifier) {
+  if (!input.control || input.meta) {
     return false;
   }
   return input.key.toLowerCase() === "w" || input.code === "KeyW";

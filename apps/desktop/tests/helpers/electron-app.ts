@@ -15,18 +15,8 @@ import type {
   SessionRecord,
   WorkspaceRecord,
 } from "../../contracts/desktop-state";
-import { resolvePackagedAppExecutable } from "./packaged-app";
 import { TINY_PNG_BASE64 } from "./native-input";
 
-export {
-  copyAppBundle,
-  extractAppBundleFromReleaseZip,
-  extractPackagedReleaseZipAppBundle,
-  resolveAppBundleExecutable,
-  resolvePackagedAppBundle,
-  resolvePackagedAppExecutable,
-  resolvePackagedReleaseZip,
-} from "./packaged-app";
 export * from "./native-input";
 
 const desktopDir = resolve(__dirname, "..", "..");
@@ -186,18 +176,6 @@ export async function spawnDesktopProcess(
   });
 }
 
-export async function launchPackagedDesktop(
-  userDataDir: string,
-  options: readonly string[] | LaunchDesktopOptions = [],
-): Promise<DesktopHarness> {
-  const normalized = normalizeLaunchOptions(options);
-  const agentDir = await prepareAgentDir(userDataDir, normalized);
-  const env = buildDesktopLaunchEnv(userDataDir, agentDir, normalized);
-  const releaseDir = resolvePackagedReleaseDir(process.env.PI_APP_TEST_RELEASE_DIR);
-  const executablePath = await resolvePackagedAppExecutable(releaseDir);
-  return launchDesktopExecutable(executablePath, env);
-}
-
 export async function launchDesktopByExecutable(
   executablePath: string,
   userDataDir: string,
@@ -288,9 +266,6 @@ function createDesktopHarness(electronApp: ElectronApplication): DesktopHarness 
         app.focus({ steal: true });
         window?.focus();
       });
-      if (process.platform === "darwin") {
-        await focusElectronAppProcess(electronApp);
-      }
       await electronApp.evaluate(({ BrowserWindow, app }) => {
         const window = BrowserWindow.getAllWindows()[0];
         app.focus({ steal: true });
@@ -379,39 +354,6 @@ async function processGroupListing(groupId: number | undefined): Promise<string>
   }
 }
 
-async function focusElectronAppProcess(electronApp: ElectronApplication): Promise<void> {
-  const pid = await electronApp.evaluate(() => process.pid);
-  const electronAppBundle = resolve(electronExecutablePath, "..", "..");
-  try {
-    await execFileAsync("open", ["-a", electronAppBundle], { timeout: 5_000 });
-  } catch {
-    // The bundle activate path is best-effort; continue with AppleScript/Electron focus.
-  }
-  try {
-    await execFileAsync("osascript", ["-e", 'tell application "Electron" to activate'], {
-      timeout: 5_000,
-    });
-  } catch {
-    // Fall through to System Events when the Electron app name is unavailable.
-  }
-  try {
-    await execFileAsync(
-      "osascript",
-      [
-        "-e",
-        `tell application "System Events"
-          set targetProcess to first application process whose unix id is ${pid}
-          set frontmost of targetProcess to true
-          return name of targetProcess
-        end tell`,
-      ],
-      { timeout: 2_000 },
-    );
-  } catch {
-    // Fall back to Electron/Playwright focus APIs when System Events access is unavailable.
-  }
-}
-
 function buildDesktopLaunchEnv(
   userDataDir: string,
   agentDir: string,
@@ -450,14 +392,6 @@ function buildDesktopLaunchEnv(
   }
 
   return env;
-}
-
-function resolvePackagedReleaseDir(rawPath: string | undefined): string | undefined {
-  const trimmed = rawPath?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  return resolve(desktopDir, trimmed);
 }
 
 async function prepareAgentDir(

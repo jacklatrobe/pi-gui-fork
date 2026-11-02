@@ -8,28 +8,28 @@ export type HintKeyEvent = ModifierState &
 
 export interface ModifierHintSpec {
   /** KeyboardEvent.key of the modifier whose press shows the hints. */
-  readonly modifierKey: (platform: NodeJS.Platform) => string;
+  readonly modifierKey: () => string;
   /** Whether an event reports the hint modifier held, and no other modifier. */
-  readonly held: (event: ModifierState, platform: NodeJS.Platform) => boolean;
+  readonly held: (event: ModifierState) => boolean;
   /** Whether a keydown with the modifier held is a shortcut the hints label. */
-  readonly keepsHints: (event: HintKeyEvent, platform: NodeJS.Platform) => boolean;
+  readonly keepsHints: (event: HintKeyEvent) => boolean;
 }
 
 /**
  * Hints that show from a press of one modifier until it is released. A labelled
  * shortcut keeps them up while the modifier stays held; any other key ends them
  * until the modifier is pressed again. A key or pointer event reporting the
- * modifier up also ends them, because macOS can drop the modifier keyup after a
- * chord the main process consumed; until such an event or a window blur, they stay up.
+ * modifier up also ends them, because the main process can consume a chord and
+ * drop the modifier keyup; until such an event or a window blur, they stay up.
  */
 export function createModifierHints(spec: ModifierHintSpec) {
-  const next = (current: boolean, event: HintKeyEvent, platform: NodeJS.Platform): boolean => {
-    if (event.key === spec.modifierKey(platform)) {
-      return event.type === "keydown" && !event.shiftKey && spec.held(event, platform);
+  const next = (current: boolean, event: HintKeyEvent): boolean => {
+    if (event.key === spec.modifierKey()) {
+      return event.type === "keydown" && !event.shiftKey && spec.held(event);
     }
-    if (!current || !spec.held(event, platform)) return false;
+    if (!current || !spec.held(event)) return false;
     if (event.type !== "keydown") return true;
-    return spec.keepsHints(event, platform);
+    return spec.keepsHints(event);
   };
 
   let visible = false;
@@ -48,7 +48,7 @@ export function createModifierHints(spec: ModifierHintSpec) {
   /** Main-process shortcuts never reach the renderer as keydown; end hints on them. */
   const dismiss = () => setVisible(false);
 
-  const useVisible = (platform: NodeJS.Platform): boolean => {
+  const useVisible = (): boolean => {
     useEffect(() => {
       const syncKey = (event: KeyboardEvent) => {
         // KeyboardEvent fields are prototype getters, so copy them rather than spread.
@@ -56,15 +56,11 @@ export function createModifierHints(spec: ModifierHintSpec) {
         const inTerminal =
           target instanceof Element && target.closest("[data-pi-terminal]") !== null;
         setVisible(
-          next(
-            visible,
-            { type, key, code, metaKey, ctrlKey, shiftKey, altKey, inTerminal },
-            platform,
-          ),
+          next(visible, { type, key, code, metaKey, ctrlKey, shiftKey, altKey, inTerminal }),
         );
       };
       const syncPointer = (event: PointerEvent) => {
-        if (visible && !spec.held(event, platform)) dismiss();
+        if (visible && !spec.held(event)) dismiss();
       };
       window.addEventListener("keydown", syncKey);
       window.addEventListener("keyup", syncKey);
@@ -79,7 +75,7 @@ export function createModifierHints(spec: ModifierHintSpec) {
         window.removeEventListener("blur", dismiss);
         dismiss();
       };
-    }, [platform]);
+    }, []);
     return useSyncExternalStore(subscribe, () => visible);
   };
 

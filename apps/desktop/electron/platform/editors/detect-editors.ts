@@ -6,7 +6,6 @@ import path from "node:path";
 import { EDITOR_CATALOG, type EditorDefinition, type WindowsInstallRoot } from "./editor-catalog";
 
 export type DetectedEditorLaunch =
-  | { readonly kind: "mac-app"; readonly appPath: string }
   | { readonly kind: "command"; readonly commandPath: string }
   | {
       readonly kind: "desktop-entry";
@@ -41,9 +40,6 @@ export interface EditorDetectionHost {
 export function detectInstalledEditors(
   host: EditorDetectionHost,
 ): Promise<readonly DetectedEditor[]> {
-  if (host.platform === "darwin") {
-    return detectMacEditors(host);
-  }
   if (host.platform === "win32") {
     return detectWindowsEditors(host);
   }
@@ -103,13 +99,6 @@ export function buildEditorLaunchCommand(
   workspacePath: string,
 ): EditorLaunchCommand {
   switch (editor.launch.kind) {
-    case "mac-app":
-      return {
-        command: "open",
-        // The resolved bundle path beats `-a <name>`, which matches by display name.
-        args: ["-a", editor.launch.appPath, workspacePath],
-        waitForExit: true,
-      };
     case "command":
       return { command: editor.launch.commandPath, args: [workspacePath], waitForExit: false };
     case "desktop-entry":
@@ -125,25 +114,6 @@ export function buildEditorLaunchCommand(
             waitForExit: true,
           };
   }
-}
-
-async function detectMacEditors(host: EditorDetectionHost): Promise<readonly DetectedEditor[]> {
-  const pathApi = path.posix;
-  const appDirectories = ["/Applications", pathApi.join(host.homeDir, "Applications")];
-  const matches = await Promise.all(
-    EDITOR_CATALOG.map(async (definition) => {
-      if (!definition.macAppName) {
-        return undefined;
-      }
-      const bundleName = `${definition.macAppName}.app`;
-      const appPath = await findFirst(
-        appDirectories.map((directory) => pathApi.join(directory, bundleName)),
-        host.exists,
-      );
-      return appPath ? toDetectedEditor(definition, { kind: "mac-app", appPath }) : undefined;
-    }),
-  );
-  return matches.filter(isDefined);
 }
 
 async function detectLinuxEditors(host: EditorDetectionHost): Promise<readonly DetectedEditor[]> {
@@ -309,9 +279,6 @@ export async function detectDefaultEditorId(
   if (editors.length === 0) {
     return undefined;
   }
-  if (host.platform === "darwin") {
-    return detectMacDefaultEditor(host, editors);
-  }
   if (host.platform === "win32") {
     return detectWindowsDefaultEditor(host, editors);
   }
@@ -333,74 +300,6 @@ async function detectLinuxDefaultEditor(
   return definition && editors.some((editor) => editor.id === definition.id)
     ? definition.id
     : undefined;
-}
-
-async function detectMacDefaultEditor(
-  host: EditorDetectionHost,
-  editors: readonly DetectedEditor[],
-): Promise<string | undefined> {
-  const pathApi = path.posix;
-  const preferencesPath = pathApi.join(
-    host.homeDir,
-    "Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist",
-  );
-  if (!(await host.exists(preferencesPath))) {
-    return undefined;
-  }
-  const json = await host.runCommand("plutil", ["-convert", "json", "-o", "-", preferencesPath]);
-  const bundleId = json ? readMacFolderHandlerBundleId(json) : undefined;
-  if (!bundleId) {
-    return undefined;
-  }
-  // LaunchServices stores a bundle identifier, while detection records bundle
-  // paths, so each detected app is read back for the id it actually carries.
-  const bundleIds = await Promise.all(
-    editors.map(async (editor) =>
-      editor.launch.kind === "mac-app"
-        ? (
-            await host.runCommand("plutil", [
-              "-extract",
-              "CFBundleIdentifier",
-              "raw",
-              "-o",
-              "-",
-              pathApi.join(editor.launch.appPath, "Contents/Info.plist"),
-            ])
-          )?.trim()
-        : undefined,
-    ),
-  );
-  return editors[bundleIds.indexOf(bundleId)]?.id;
-}
-
-function readMacFolderHandlerBundleId(json: string): string | undefined {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    return undefined;
-  }
-  const handlers = (parsed as { LSHandlers?: unknown }).LSHandlers;
-  if (!Array.isArray(handlers)) {
-    return undefined;
-  }
-  const folderTypes = new Set(["public.folder", "public.directory"]);
-  for (const entry of handlers) {
-    if (typeof entry !== "object" || entry === null) {
-      continue;
-    }
-    const record = entry as Record<string, unknown>;
-    const contentType = record.LSHandlerContentType ?? record.LSContentType;
-    if (typeof contentType !== "string" || !folderTypes.has(contentType)) {
-      continue;
-    }
-    const bundleId =
-      record.LSHandlerRoleAll ?? record.LSHandlerRoleViewer ?? record.LSHandlerRoleEditor;
-    if (typeof bundleId === "string" && bundleId) {
-      return bundleId;
-    }
-  }
-  return undefined;
 }
 
 async function detectWindowsDefaultEditor(

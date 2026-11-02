@@ -2,15 +2,13 @@ import { getDesktopCommandFromShortcut, isRecentThreadCommand } from "../../../c
 import { createModifierHints } from "../../ui/modifier-hints";
 
 /**
- * Cmd+1-9 hints on thread rows, from a press of the platform modifier (Command
- * on macOS, Control elsewhere) until it is released. A 1-9 thread switch keeps
- * them up while the modifier stays held. The terminal keeps Ctrl+1-9 for the
- * shell, so they never switch threads there.
+ * Ctrl+1-9 hints on thread rows, from a press of Control until it is released.
+ * A 1-9 thread switch keeps them up while the modifier stays held. The terminal
+ * keeps Ctrl+1-9 for the shell, so they never switch threads there.
  */
 const threadShortcutHints = createModifierHints({
-  modifierKey: (platform) => (platform === "darwin" ? "Meta" : "Control"),
-  held: (event, platform) =>
-    (platform === "darwin" ? event.metaKey : event.ctrlKey) && !event.altKey,
+  modifierKey: () => "Control",
+  held: (event) => event.ctrlKey && !event.altKey,
   keepsHints: (event) =>
     !event.inTerminal &&
     isRecentThreadCommand(

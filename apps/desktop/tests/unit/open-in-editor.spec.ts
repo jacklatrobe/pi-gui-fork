@@ -42,24 +42,6 @@ function host(facts: HostFacts): EditorDetectionHost {
 
 const ids = (editors: readonly DetectedEditor[]) => editors.map((editor) => editor.id);
 
-test("macOS detection finds application bundles in both application folders", async () => {
-  const editors = await detectInstalledEditors(
-    host({
-      platform: "darwin",
-      homeDir: "/Users/dev",
-      exists: (candidate) =>
-        candidate === "/Applications/Visual Studio Code.app" ||
-        candidate === "/Users/dev/Applications/Zed.app",
-    }),
-  );
-
-  expect(ids(editors)).toEqual(["vscode", "zed"]);
-  expect(editors[0]?.launch).toEqual({
-    kind: "mac-app",
-    appPath: "/Applications/Visual Studio Code.app",
-  });
-});
-
 test("Linux detection prefers a PATH executable over the desktop entry", async () => {
   const editors = await detectInstalledEditors(
     host({
@@ -301,21 +283,6 @@ test("resolvePosixCommand keeps PATH order and rejects non-executables", async (
 test("launch commands hand the checkout to each launch kind", async () => {
   const workspacePath = "/tmp/project";
 
-  expect(
-    buildEditorLaunchCommand(
-      {
-        id: "vscode",
-        label: "Visual Studio Code",
-        shortLabel: "vscode",
-        launch: { kind: "mac-app", appPath: "/Applications/Visual Studio Code.app" },
-      },
-      workspacePath,
-    ),
-  ).toEqual({
-    command: "open",
-    args: ["-a", "/Applications/Visual Studio Code.app", workspacePath],
-    waitForExit: true,
-  });
   expect(
     buildEditorLaunchCommand(
       {
@@ -666,55 +633,6 @@ test("OS default detection ignores a known handler that is not installed", async
 
 test("OS default detection answers nothing when the probe command is missing", async () => {
   const defaultId = await detectDefaultEditorId(host({ platform: "linux" }), [detectedEditor]);
-
-  expect(defaultId).toBeUndefined();
-});
-
-test("macOS default detection matches the LaunchServices handler by bundle id", async () => {
-  const defaultId = await detectDefaultEditorId(
-    host({
-      platform: "darwin",
-      homeDir: "/Users/dev",
-      exists: (candidate) => candidate.endsWith("com.apple.launchservices.secure.plist"),
-      runCommand: (command, args) => {
-        if (command !== "plutil") {
-          return undefined;
-        }
-        if (args.includes("-convert")) {
-          return JSON.stringify({
-            LSHandlers: [
-              { LSHandlerContentType: "public.jpeg", LSHandlerRoleAll: "com.apple.Preview" },
-              { LSHandlerContentType: "public.folder", LSHandlerRoleAll: "com.microsoft.VSCode" },
-            ],
-          });
-        }
-        return args.at(-1) === "/Applications/Visual Studio Code.app/Contents/Info.plist"
-          ? "com.microsoft.VSCode\n"
-          : undefined;
-      },
-    }),
-    [
-      {
-        id: "vscode",
-        label: "Visual Studio Code",
-        shortLabel: "vscode",
-        launch: { kind: "mac-app", appPath: "/Applications/Visual Studio Code.app" },
-      },
-    ],
-  );
-
-  expect(defaultId).toBe("vscode");
-});
-
-test("macOS default detection answers nothing without the preferences plist", async () => {
-  const defaultId = await detectDefaultEditorId(
-    host({
-      platform: "darwin",
-      exists: () => false,
-      runCommand: () => "{}",
-    }),
-    [detectedEditor],
-  );
 
   expect(defaultId).toBeUndefined();
 });

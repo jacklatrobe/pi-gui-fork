@@ -359,7 +359,7 @@ test("Cmd/Ctrl+number keeps a draft typed just before switching on its own threa
     initialWorkspaces: [await makeWorkspace("composer-draft-number-switch")],
     testMode: "background",
   });
-  const modifier = process.platform === "darwin" ? "Meta" : "Control";
+  const modifier = "Control";
   try {
     const window = await harness.firstWindow();
     const title = window.locator(".chat-header__title");

@@ -51,12 +51,12 @@ export interface ThreadActionHandlers {
   readonly copySessionId: (subject: ThreadActionSubject) => void;
 }
 
-export function renameThreadShortcut(platform: NodeJS.Platform): string {
-  return formatShortcut(platform, "R", { shift: true });
+export function renameThreadShortcut(): string {
+  return formatShortcut("R", { shift: true });
 }
 
-export function archiveThreadShortcut(platform: NodeJS.Platform): string {
-  return formatShortcut(platform, "A", { shift: true });
+export function archiveThreadShortcut(): string {
+  return formatShortcut("A", { shift: true });
 }
 
 export function buildThreadActions(
@@ -71,7 +71,7 @@ export function buildThreadActions(
       id: "rename-thread",
       title: "Rename thread",
       icon: <PencilIcon />,
-      hint: renameThreadShortcut(handlers.platform),
+      hint: renameThreadShortcut(),
       run: () => handlers.startRename(subject),
     },
   ];
@@ -94,7 +94,7 @@ export function buildThreadActions(
         id: "archive-thread",
         title: "Archive thread",
         icon: <ArchiveIcon />,
-        hint: archiveThreadShortcut(handlers.platform),
+        hint: archiveThreadShortcut(),
         run: () => handlers.archive(subject),
       },
     );

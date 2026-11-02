@@ -19,7 +19,7 @@ async function openWindowCount(harness: DesktopHarness): Promise<number> {
 }
 
 async function pressCloseShortcut(harness: DesktopHarness): Promise<void> {
-  const modifier = process.platform === "darwin" ? "meta" : "control";
+  const modifier = "control";
   await harness.electronApp.evaluate(({ BrowserWindow }, keyModifier) => {
     BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
       type: "keyDown",

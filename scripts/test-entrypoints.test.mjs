@@ -87,7 +87,7 @@ test("desktop tests use one public Electron helper entrypoint", async () => {
     "utf8",
   );
   assert.match(publicHelper, /export \* from "\.\/native-input"/);
-  assert.match(publicHelper, /from "\.\/packaged-app"/);
+  assert.doesNotMatch(publicHelper, /packaged-app/);
 });
 
 test("the public Electron helper loads through Playwright and the marketing script loader", async () => {

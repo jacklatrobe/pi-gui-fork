@@ -182,7 +182,7 @@ export function Sidebar(props: SidebarProps) {
       if (!next.delete(key)) next.add(key);
       return next;
     });
-  const commandHeld = useThreadShortcutHintsVisible(api.platform);
+  const commandHeld = useThreadShortcutHintsVisible();
   const collapsedFolderIds = new Set(collapsedWorkspaceIds);
   const setFolderCollapsed = (workspaceId: string, collapsed: boolean) => {
     void updateSnapshot(setSnapshot, () => api.setWorkspaceCollapsed(workspaceId, collapsed)).catch(
@@ -206,7 +206,7 @@ export function Sidebar(props: SidebarProps) {
           const slot = index + 1;
           return [
             sessionThreadKey(thread),
-            { slot, label: getDesktopShortcutLabel(api.platform, String(slot)) },
+            { slot, label: getDesktopShortcutLabel(String(slot)) },
           ] as const;
         }),
       )
@@ -1756,7 +1756,7 @@ const ThreadSessionRow = forwardRef<HTMLDivElement, ThreadSessionRowProps>(
                 {threadMenu && !overlay && !menuOpen ? (
                   <span className="shortcut-tooltip session-row__tooltip" role="tooltip">
                     <span>{archived ? "Restore thread" : "Archive thread"}</span>
-                    {archived ? null : <kbd>{archiveThreadShortcut(threadMenu.platform)}</kbd>}
+                    {archived ? null : <kbd>{archiveThreadShortcut()}</kbd>}
                   </span>
                 ) : null}
               </span>

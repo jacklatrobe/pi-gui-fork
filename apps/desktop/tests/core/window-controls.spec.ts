@@ -15,7 +15,7 @@ import {
 
 /**
  * Linux windows are frameless, so the app draws one title bar with minimize,
- * maximize and close above every screen. macOS and Windows keep native chrome
+ * maximize and close above every screen. Windows keeps native chrome
  * and must not get it.
  */
 const drawsWindowControls = process.platform === "linux";

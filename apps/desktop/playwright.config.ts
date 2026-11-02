@@ -20,12 +20,7 @@ export default defineConfig({
     !process.env.CI
       ? 3
       : 1),
-  // Foreground runs own the OS input loop and have always retried once.
-  // CI also retries the background lane once so a single slow runner (for
-  // example an extension-view timeout on a loaded macOS runner) does not fail
-  // the required gate. Playwright still reports the test as flaky and fails if
-  // every attempt fails, so a real regression is not hidden.
-  retries: process.env.PI_APP_TEST_MODE === "foreground" || process.env.CI ? 1 : 0,
+  retries: process.env.PI_APP_TEST_MODE === "foreground" ? 1 : 0,
   use: {
     trace: "retain-on-failure",
     screenshot: "only-on-failure",

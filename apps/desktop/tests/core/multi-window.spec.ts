@@ -15,7 +15,7 @@ import {
   type DesktopHarness,
 } from "../helpers/electron-app";
 
-const platformModifier = process.platform === "darwin" ? "meta" : "control";
+const platformModifier = "control";
 
 async function waitForPiApp(window: Page): Promise<void> {
   await window.waitForLoadState("domcontentloaded");

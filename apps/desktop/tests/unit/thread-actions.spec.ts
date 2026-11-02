@@ -44,7 +44,7 @@ function titles(actions: readonly { readonly title: string }[]): string[] {
 }
 
 test("an open thread lists rename, pin, archive, scheduled task and copy with shortcut hints", () => {
-  const actions = buildThreadActions({ workspaceId: "ws", session: session() }, handlers("darwin"));
+  const actions = buildThreadActions({ workspaceId: "ws", session: session() }, handlers("linux"));
   expect(titles(actions)).toEqual([
     "Rename thread",
     "Pin thread",
@@ -52,8 +52,8 @@ test("an open thread lists rename, pin, archive, scheduled task and copy with sh
     "Add scheduled task…",
     "Copy session ID",
   ]);
-  expect(actions.find((action) => action.id === "rename-thread")?.hint).toBe("⇧⌘R");
-  expect(actions.find((action) => action.id === "archive-thread")?.hint).toBe("⇧⌘A");
+  expect(actions.find((action) => action.id === "rename-thread")?.hint).toBe("Ctrl+Shift+R");
+  expect(actions.find((action) => action.id === "archive-thread")?.hint).toBe("Ctrl+Shift+A");
   const linux = buildThreadActions({ workspaceId: "ws", session: session() }, handlers("linux"));
   expect(linux.find((action) => action.id === "archive-thread")?.hint).toBe("Ctrl+Shift+A");
 });

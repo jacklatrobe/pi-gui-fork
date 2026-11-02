@@ -278,7 +278,6 @@ export function useDesktopCommands(input: DesktopCommandsInput) {
       shift: event.shiftKey,
       key: event.key,
       code: event.code,
-      platform: api?.platform ?? "linux",
     });
     if (closeSurfaceShortcut && closableSurfaceFromTarget(event.target)) {
       event.preventDefault();
@@ -287,7 +286,7 @@ export function useDesktopCommands(input: DesktopCommandsInput) {
     }
     // Main forwards these chords without consuming them, so this repeats its
     // selection harmlessly; it serves keydowns main never saw, such as Playwright's.
-    const sidePanelTabCommand = getSidePanelTabCommand(api?.platform ?? "linux", {
+    const sidePanelTabCommand = getSidePanelTabCommand({
       meta: event.metaKey,
       control: event.ctrlKey,
       alt: event.altKey,
@@ -320,7 +319,7 @@ export function useDesktopCommands(input: DesktopCommandsInput) {
         command === desktopCommands.newSidePanelTab &&
         !event.repeat &&
         !(event.target instanceof Element && event.target.closest(".xterm")) &&
-        platformShortcutModifier(api?.platform ?? "linux", {
+        platformShortcutModifier({
           meta: event.metaKey,
           control: event.ctrlKey,
         }) &&
@@ -347,11 +346,11 @@ export function useDesktopCommands(input: DesktopCommandsInput) {
       key: event.key,
       code: event.code,
     });
-    // macOS Control+N moves the caret down a line in text fields.
+    // A chord without the Control modifier does not open a new thread.
     if (
       command === desktopCommands.openNewThread &&
       !event.shiftKey &&
-      !platformShortcutModifier(api?.platform ?? "linux", {
+      !platformShortcutModifier({
         meta: event.metaKey,
         control: event.ctrlKey,
       })
@@ -360,7 +359,7 @@ export function useDesktopCommands(input: DesktopCommandsInput) {
     }
     if (isSinglePressCommand(command)) {
       if (
-        !platformShortcutModifier(api?.platform ?? "linux", {
+        !platformShortcutModifier({
           meta: event.metaKey,
           control: event.ctrlKey,
         })

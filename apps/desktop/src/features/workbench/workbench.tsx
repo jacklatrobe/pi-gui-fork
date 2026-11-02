@@ -13,7 +13,6 @@ import { activeWorkbenchTool } from "./workbench-state";
 
 interface WorkbenchProps {
   readonly view: TaskWorkbenchTemplate;
-  readonly platform: NodeJS.Platform;
   /** Whether the side panel tab modifier is held, so tabs show their numbers. */
   readonly tabHintsVisible: boolean;
   readonly onResize: (width: number) => void;
@@ -44,7 +43,6 @@ function ToolIcon({ tool }: { readonly tool: ToolRef }) {
 
 export function Workbench({
   view,
-  platform,
   tabHintsVisible,
   onResize,
   onTogglePanel,
@@ -147,14 +145,12 @@ export function Workbench({
                 : workbenchToolLabel(tool);
             const selected = view.selection.kind === "tool" && view.selection.toolId === toolId;
             const slot = index < SIDE_PANEL_TAB_SHORTCUT_SLOT_COUNT ? index + 1 : undefined;
-            const shortcut = slot ? getSidePanelTabShortcutLabel(platform, slot) : undefined;
+            const shortcut = slot ? getSidePanelTabShortcutLabel(slot) : undefined;
             return (
               <div className="workbench__tab-wrapper" key={toolId} role="presentation">
                 <button
                   aria-controls={panelId}
-                  aria-keyshortcuts={
-                    slot ? `${platform === "darwin" ? "Control" : "Alt"}+${slot}` : undefined
-                  }
+                  aria-keyshortcuts={slot ? `Alt+${slot}` : undefined}
                   aria-label={label}
                   aria-selected={selected}
                   className={`workbench__tab${selected ? " workbench__tab--active" : ""}`}
@@ -198,14 +194,14 @@ export function Workbench({
           })}
         </div>
         <button
-          aria-keyshortcuts={`${platform === "darwin" ? "Meta" : "Control"}+T`}
+          aria-keyshortcuts="Control+T"
           aria-label="Add tab"
           className="workbench__add icon-button"
           data-testid="workbench-add-tab"
           disabled={loading}
           onClick={onShowChooser}
           ref={addRef}
-          title={`Add tab (${formatShortcut(platform, "T")})`}
+          title={`Add tab (${formatShortcut("T")})`}
           type="button"
         >
           <PlusIcon />
@@ -251,11 +247,7 @@ export function Workbench({
             <p>Keep the tools you need alongside your conversation.</p>
             {BUILTIN_TOOL_ENTRIES.map(({ kind, label, description, Icon, shortcutKey }) => (
               <button
-                aria-keyshortcuts={
-                  shortcutKey
-                    ? `${platform === "darwin" ? "Meta" : "Control"}+${shortcutKey}`
-                    : undefined
-                }
+                aria-keyshortcuts={shortcutKey ? `Control+${shortcutKey}` : undefined}
                 aria-label={label}
                 className="workbench__choice"
                 key={kind}
@@ -270,9 +262,7 @@ export function Workbench({
                   <span>{description}</span>
                 </span>
                 {shortcutKey ? (
-                  <kbd className="workbench__choice-shortcut">
-                    {formatShortcut(platform, shortcutKey)}
-                  </kbd>
+                  <kbd className="workbench__choice-shortcut">{formatShortcut(shortcutKey)}</kbd>
                 ) : null}
               </button>
             ))}

@@ -90,7 +90,7 @@ export function Topbar({
             </button>
             <span className="shortcut-tooltip topbar__tooltip" role="tooltip">
               <span>{panelVisible ? "Hide side panel" : "Show side panel"}</span>
-              <kbd>{getSidePanelToggleShortcutLabel(api.platform)}</kbd>
+              <kbd>{getSidePanelToggleShortcutLabel()}</kbd>
             </span>
           </div>
         ) : null}

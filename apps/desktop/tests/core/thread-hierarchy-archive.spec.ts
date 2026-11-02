@@ -127,7 +127,7 @@ test("children nest under their parent; the archive tool archives only finished 
     await expect(otherParentRow).toHaveAttribute("data-session-pinned", "false");
     await expect(group).toHaveCount(0);
     // Renaming the selected child from the keyboard reopens its collapsed parent.
-    await window.keyboard.press(`${process.platform === "darwin" ? "Meta" : "Control"}+Shift+R`);
+    await window.keyboard.press("Control+Shift+R");
     await expect(window.getByLabel(`Rename thread ${done.title}`)).toBeFocused();
     await window.keyboard.press("Escape");
     await expect(group).toBeVisible();

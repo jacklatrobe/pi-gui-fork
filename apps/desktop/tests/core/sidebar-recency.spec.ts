@@ -504,8 +504,8 @@ async function sendComposerPrompt(window: Page, text: string): Promise<void> {
     .toContain(text);
 }
 
-const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
-const otherModifier = process.platform === "darwin" ? "Control" : "Meta";
+const commandModifier = "Control";
+const otherModifier = "Meta";
 
 async function expectShortcutBadges(window: Page, titles: readonly string[]): Promise<void> {
   await window.keyboard.down(commandModifier);
@@ -517,7 +517,7 @@ async function expectShortcutBadges(window: Page, titles: readonly string[]): Pr
       ).toHaveText(title);
       await expect(
         window.locator(`[data-thread-shortcut="${index + 1}"] .session-row__shortcut`),
-      ).toHaveText(process.platform === "darwin" ? `⌘${index + 1}` : `Ctrl+${index + 1}`);
+      ).toHaveText(`Ctrl+${index + 1}`);
     }
   } finally {
     await window.keyboard.up(commandModifier);

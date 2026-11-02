@@ -1,4 +1,3 @@
-import { CopyCommand } from "./components/copy-command";
 import { DownloadButton } from "./components/download-button";
 import { ThemedShot } from "./components/themed-shot";
 import {
@@ -279,7 +278,6 @@ export default function Page() {
                   <h3>{item.platform}</h3>
                   <p className="install__detail">{item.detail}</p>
                   <p>{item.steps}</p>
-                  {"command" in item ? <CopyCommand command={item.command} /> : null}
                 </div>
               ))}
             </div>

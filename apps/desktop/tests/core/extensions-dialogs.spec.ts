@@ -26,7 +26,7 @@ export default function dialogExtension(pi) {
   pi.registerCommand("dialog-confirm-timeout", {
     description: "Open a confirmation dialog that times out",
     handler: async (_args, ctx) => {
-      // 100ms races hidden-window paint and Playwright's first poll on macOS CI.
+      // 100ms races hidden-window paint and Playwright's first poll on CI.
       const confirmed = await ctx.ui.confirm("Timeout confirm?", "This should close itself.", {
         timeout: 2_000,
       });

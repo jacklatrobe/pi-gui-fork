@@ -40,9 +40,10 @@ pnpm test                                        # each workspace's tests (deskt
 pnpm --filter @pi-gui/desktop run test:e2e:all   # core + live + native
 ```
 
-macOS is the source of truth for desktop UI verification. Linux is supported for
-packaging and manual validation. See [`apps/desktop/README.md`](./apps/desktop/README.md)
-for the full lane list and platform-specific packaging notes.
+Linux and Windows are the supported desktop platforms. Linux CI is the source of
+truth for desktop UI verification, and Windows CI validates packaging. See
+[`apps/desktop/README.md`](./apps/desktop/README.md) for the full lane list and
+platform packaging notes.
 
 ## Expectations for a change
 

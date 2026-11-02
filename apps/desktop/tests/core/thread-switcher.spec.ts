@@ -54,7 +54,7 @@ test("Ctrl-Tab switches threads in most-recently-used order and keeps it across 
     await window.keyboard.press("Tab");
     await expect(switcherRows(window)).toHaveText([/Thread three/, /Thread two/, /Thread one/]);
     await expectSwitcherSelection(window, "Thread two");
-    // Held Control (off macOS) no longer paints the Ctrl+1-9 badges under the list.
+    // Held Control does not paint the Ctrl+1-9 badges under the list.
     await expect(window.locator("[data-thread-shortcut]")).toHaveCount(0);
     await window.keyboard.press("Tab");
     await expectSwitcherSelection(window, "Thread one");
@@ -74,19 +74,17 @@ test("Ctrl-Tab switches threads in most-recently-used order and keeps it across 
     await expect(window.getByTestId("thread-switcher")).toHaveCount(0);
     await expect(threadTitle(window)).toHaveText("Thread one");
 
-    // An app shortcut pressed while the list is open (Ctrl-K off macOS) closes it without switching.
-    if (process.platform !== "darwin") {
-      await window.keyboard.down("Control");
-      await window.keyboard.press("Tab");
-      await expect(window.getByTestId("thread-switcher")).toBeVisible();
-      await window.keyboard.press("k");
-      await expect(window.getByTestId("thread-switcher")).toHaveCount(0);
-      await expect(window.getByTestId("command-palette")).toBeVisible();
-      await window.keyboard.up("Control");
-      await window.keyboard.press("Escape");
-      await expect(window.getByTestId("command-palette")).toHaveCount(0);
-      await expect(threadTitle(window)).toHaveText("Thread one");
-    }
+    // An app shortcut pressed while the list is open (Ctrl-K) closes it without switching.
+    await window.keyboard.down("Control");
+    await window.keyboard.press("Tab");
+    await expect(window.getByTestId("thread-switcher")).toBeVisible();
+    await window.keyboard.press("k");
+    await expect(window.getByTestId("thread-switcher")).toHaveCount(0);
+    await expect(window.getByTestId("command-palette")).toBeVisible();
+    await window.keyboard.up("Control");
+    await window.keyboard.press("Escape");
+    await expect(window.getByTestId("command-palette")).toHaveCount(0);
+    await expect(threadTitle(window)).toHaveText("Thread one");
 
     // The terminal does not swallow the chord.
     await selectSidePanel(window, "Terminal");

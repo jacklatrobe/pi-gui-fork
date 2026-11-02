@@ -54,7 +54,6 @@ interface ConversationTimelineProps {
   readonly scheduledOrigins?: ReadonlyMap<string, ScheduledTaskOrigin>;
   readonly workspacePath?: string;
   readonly annotations?: TranscriptAnnotations;
-  readonly platform: NodeJS.Platform;
 }
 const NO_MARKERS: readonly AnnotationMarker[] = [];
 export function ConversationTimeline({
@@ -74,13 +73,11 @@ export function ConversationTimeline({
   scheduledOrigins,
   workspacePath,
   annotations,
-  platform,
 }: ConversationTimelineProps) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const annotationSelection = useAnnotationSelection({
     paneRef: surfaceRef,
     annotations,
-    platform,
   });
   const annotationList = annotations?.list;
   // Keyed by every id an annotation knows its message by: a row keeps its live id after it

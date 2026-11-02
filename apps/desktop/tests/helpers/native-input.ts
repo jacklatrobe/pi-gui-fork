@@ -6,7 +6,7 @@ import type { DesktopHarness } from "./electron-app";
 export const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
-const desktopModifierKey = process.platform === "darwin" ? "Meta" : "Control";
+const desktopModifierKey = "Control";
 
 export function desktopShortcut(keyChord: string): string {
   return `${desktopModifierKey}+${keyChord}`;
@@ -196,55 +196,4 @@ export async function getOpenDialogInvocationCount(harness: DesktopHarness): Pro
   return harness.electronApp.evaluate(
     () => (globalThis as { __PI_TEST_OPEN_DIALOG_COUNT?: number }).__PI_TEST_OPEN_DIALOG_COUNT ?? 0,
   );
-}
-
-export async function triggerNativeOpenFolderShortcut(harness: DesktopHarness): Promise<void> {
-  await harness.electronApp.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
-      type: "keyDown",
-      keyCode: "o",
-      modifiers: ["meta"],
-    });
-  });
-}
-
-export async function getApplicationMenuItemInfo(
-  harness: DesktopHarness,
-  menuItemId: string,
-): Promise<{ id: string; label: string; accelerator: string; parentLabel: string | null } | null> {
-  return harness.electronApp.evaluate(({ Menu }, targetId) => {
-    const menu = Menu.getApplicationMenu();
-    if (!menu) return null;
-
-    const stack = menu.items.map((item) => ({ item, parentLabel: item.label ?? null }));
-    while (stack.length > 0) {
-      const entry = stack.shift();
-      if (!entry) continue;
-      const { item, parentLabel } = entry;
-      if (item.id === targetId) {
-        return {
-          id: item.id,
-          label: item.label,
-          accelerator: item.accelerator ? String(item.accelerator) : "",
-          parentLabel,
-        };
-      }
-      for (const child of item.submenu?.items ?? []) {
-        stack.push({ item: child, parentLabel: item.label || parentLabel });
-      }
-    }
-    return null;
-  }, menuItemId);
-}
-
-export async function triggerApplicationMenuItem(
-  harness: DesktopHarness,
-  menuItemId: string,
-): Promise<boolean> {
-  return harness.electronApp.evaluate(({ BrowserWindow, Menu }, targetId) => {
-    const item = Menu.getApplicationMenu()?.getMenuItemById(targetId);
-    if (!item?.click) return false;
-    Reflect.apply(item.click, item, [item, BrowserWindow.getFocusedWindow() ?? undefined, {}]);
-    return true;
-  }, menuItemId);
 }

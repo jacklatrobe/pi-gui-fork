@@ -445,7 +445,6 @@ export function SecondarySurfaces({
               ? settingsModelRuntime
               : settingsRuntime
           }
-          platform={api.platform}
           headerAccessory={
             settingsSection === "providers" ||
             settingsSection === "mcp" ||

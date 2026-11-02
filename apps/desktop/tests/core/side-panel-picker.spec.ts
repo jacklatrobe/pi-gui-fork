@@ -29,7 +29,7 @@ test("one icon and keyboard shortcuts toggle the selected workspace tool", async
     await toggle.click();
     const chooser = window.getByTestId("workbench-chooser");
     if (!(await chooser.isVisible())) await window.getByTestId("workbench-add-tab").click();
-    const modifierLabel = process.platform === "darwin" ? "⌘" : "Ctrl+";
+    const modifierLabel = "Ctrl+";
     const tile = (name: string) => chooser.getByRole("button", { name, exact: true });
     await expect(tile("Review").locator("kbd")).toHaveText(`${modifierLabel}R`);
     await expect(tile("Terminal").locator("kbd")).toHaveText(`${modifierLabel}J`);
@@ -63,7 +63,7 @@ test("one icon and keyboard shortcuts toggle the selected workspace tool", async
     await expect(terminal).toBeVisible();
     await expect(window.locator(".diff-panel")).toHaveCount(0);
     await terminal.locator(".xterm").click();
-    const modifier = process.platform === "darwin" ? "meta" : "control";
+    const modifier = "control";
     const pressSidePanelShortcut = () =>
       harness.electronApp.evaluate(({ BrowserWindow }, keyModifier) => {
         BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
@@ -80,7 +80,7 @@ test("one icon and keyboard shortcuts toggle the selected workspace tool", async
       window.getByRole("tablist", { name: "Workspace tools" }).getByRole("tab"),
     ).toHaveCount(3);
 
-    // Cmd+R reaches Review from the terminal on macOS; Ctrl+R stays with the shell elsewhere.
+    // Ctrl+R stays with the shell from the terminal.
     await terminal.locator(".xterm").click();
     await harness.electronApp.evaluate(({ BrowserWindow }, keyModifier) => {
       BrowserWindow.getAllWindows()[0]?.webContents.sendInputEvent({
@@ -89,12 +89,8 @@ test("one icon and keyboard shortcuts toggle the selected workspace tool", async
         modifiers: [keyModifier],
       });
     }, modifier);
-    if (process.platform === "darwin") {
-      await expect(window.locator(".diff-panel")).toBeVisible();
-    } else {
-      await expect(terminal.locator(".xterm-rows")).toContainText(/i-search/);
-      await expect(window.locator(".diff-panel")).toHaveCount(0);
-    }
+    await expect(terminal.locator(".xterm-rows")).toContainText(/i-search/);
+    await expect(window.locator(".diff-panel")).toHaveCount(0);
   } finally {
     await harness.close();
   }

@@ -156,7 +156,7 @@ test("coalesces token publishes without losing stick-to-bottom or wheel unpin", 
       events.push(runningSnapshot(context, runId, `tok${index}`, timestamp));
     }
     await emitTestSessionEvents(harness, events);
-    // Hidden macOS CI windows coalesce Node timers past 50ms. A fixed
+    // Background CI windows can coalesce Node timers past 50ms. A fixed
     // STREAMING_UI_PUBLISH_INTERVAL_MS+40 wait returned state-changed=0 on
     // desktop-core (run 35487349740) while the UI still showed Working….
     await expect

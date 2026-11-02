@@ -12,13 +12,11 @@ import {
   SEARCH_CHORD_TOGGLE_MS,
 } from "../../contracts/ipc";
 
-test("settings follows the platform modifier", () => {
-  expect(platformShortcutModifier("darwin", { meta: true, control: false })).toBe(true);
-  expect(platformShortcutModifier("darwin", { meta: false, control: true })).toBe(false);
-  expect(platformShortcutModifier("linux", { meta: true, control: false })).toBe(false);
-  expect(platformShortcutModifier("win32", { meta: false, control: true })).toBe(true);
+test("settings follows the Control modifier", () => {
+  expect(platformShortcutModifier({ meta: true, control: false })).toBe(false);
+  expect(platformShortcutModifier({ meta: false, control: true })).toBe(true);
 
-  const modifier = platformShortcutModifier("darwin", { meta: true, control: false });
+  const modifier = platformShortcutModifier({ meta: false, control: true });
   expect(
     getDesktopCommandFromShortcut({
       modifier,

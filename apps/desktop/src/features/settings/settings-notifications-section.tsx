@@ -24,9 +24,9 @@ export function SettingsNotificationsSection({
   const { t } = useTranslation();
   const statusLabel = labelForPermissionStatus(t, notificationPermissionStatus);
   const statusDescription = descriptionForPermissionStatus(t, notificationPermissionStatus);
-  const showAskMacOs = notificationPermissionStatus === "default";
+  const showAskPermission = notificationPermissionStatus === "default";
   const showOpenSystemSettings = notificationPermissionStatus === "denied";
-  const showRecoveryActions = showAskMacOs || showOpenSystemSettings;
+  const showRecoveryActions = showAskPermission || showOpenSystemSettings;
 
   return (
     <>
@@ -44,13 +44,13 @@ export function SettingsNotificationsSection({
           <SettingsRow
             title={t("settings.notifications.turnOn.title")}
             description={
-              showAskMacOs
+              showAskPermission
                 ? t("settings.notifications.turnOn.descriptionAsk")
                 : t("settings.notifications.turnOn.descriptionOpen")
             }
           >
             <div className="settings-row__actions">
-              {showAskMacOs ? (
+              {showAskPermission ? (
                 <button
                   className="button button--secondary"
                   disabled={notificationPermissionPending}

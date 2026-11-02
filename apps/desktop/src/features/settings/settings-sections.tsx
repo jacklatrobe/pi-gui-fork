@@ -53,7 +53,7 @@ export const SETTINGS_SECTIONS = [
     titleKey: "settings.nav.notifications",
     groupKey: "settings.group.app",
     icon: <BellIcon />,
-    keywords: ["alerts", "background", "completion", "failures", "approval", "macos"],
+    keywords: ["alerts", "background", "completion", "failures", "approval", "notifications"],
     descriptionKey: "settings.section.notifications.description",
     needsWorkspace: false,
   },

@@ -11,7 +11,7 @@ async function readSettingsLog(path: string): Promise<string> {
   }
 }
 
-test("shows not enabled yet and enables via Ask macOS", async () => {
+test("shows not enabled yet and enables via the permission prompt", async () => {
   const userDataDir = await makeUserDataDir();
   const workspacePath = await makeWorkspace("notification-settings-default-workspace");
   const harness = await launchDesktop(userDataDir, {
@@ -29,24 +29,24 @@ test("shows not enabled yet and enables via Ask macOS", async () => {
     await window.getByRole("button", { name: "Notifications", exact: true }).click();
 
     await expect(window.locator(".settings-view")).toContainText("Not enabled yet");
-    await expect(window.getByRole("button", { name: "Ask macOS", exact: true })).toHaveCount(1);
+    await expect(window.getByRole("button", { name: "Enable", exact: true })).toHaveCount(1);
     await expect(
-      window.getByRole("button", { name: "Open System Settings", exact: true }),
+      window.getByRole("button", { name: "Open system settings", exact: true }),
     ).toHaveCount(0);
 
-    await window.getByRole("button", { name: "Ask macOS", exact: true }).click();
+    await window.getByRole("button", { name: "Enable", exact: true }).click();
 
     await expect(window.locator(".settings-view")).toContainText("Enabled");
-    await expect(window.getByRole("button", { name: "Ask macOS", exact: true })).toHaveCount(0);
+    await expect(window.getByRole("button", { name: "Enable", exact: true })).toHaveCount(0);
     await expect(
-      window.getByRole("button", { name: "Open System Settings", exact: true }),
+      window.getByRole("button", { name: "Open system settings", exact: true }),
     ).toHaveCount(0);
   } finally {
     await harness.close();
   }
 });
 
-test("shows turned off and opens System Settings when macOS notifications are denied", async () => {
+test("shows turned off and opens system settings when notifications are denied", async () => {
   const userDataDir = await makeUserDataDir();
   const workspacePath = await makeWorkspace("notification-settings-denied-workspace");
   const settingsLogPath = join(userDataDir, "notification-settings.log");
@@ -66,14 +66,14 @@ test("shows turned off and opens System Settings when macOS notifications are de
 
     await expect(window.locator(".settings-view")).toContainText("Turned off");
     await expect(window.locator(".settings-view")).toContainText(
-      "macOS notifications are turned off for pi-gui",
+      "Notifications are turned off for pi-gui",
     );
-    await expect(window.getByRole("button", { name: "Ask macOS", exact: true })).toHaveCount(0);
+    await expect(window.getByRole("button", { name: "Enable", exact: true })).toHaveCount(0);
     await expect(
-      window.getByRole("button", { name: "Open System Settings", exact: true }),
+      window.getByRole("button", { name: "Open system settings", exact: true }),
     ).toHaveCount(1);
 
-    await window.getByRole("button", { name: "Open System Settings", exact: true }).click();
+    await window.getByRole("button", { name: "Open system settings", exact: true }).click();
     await expect.poll(() => readSettingsLog(settingsLogPath), { timeout: 5_000 }).not.toBe("");
   } finally {
     await harness.close();

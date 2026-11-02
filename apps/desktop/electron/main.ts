@@ -3,13 +3,11 @@ import {
   BrowserWindow,
   clipboard,
   dialog,
-  Menu,
   nativeImage,
   nativeTheme,
   net,
   protocol,
   shell,
-  type MenuItemConstructorOptions,
   type MessageBoxOptions,
 } from "electron";
 import { isValidHttpBaseUrl } from "@pi-gui/pi-sdk-driver";
@@ -186,8 +184,6 @@ const SUPPORTED_IMAGE_TYPES = SUPPORTED_COMPOSER_IMAGE_TYPES;
 const SUPPORTED_IMAGE_MIME_TYPES = new Set<string>(
   SUPPORTED_IMAGE_TYPES.map((type) => type.mimeType),
 );
-const NEW_WINDOW_MENU_ITEM_ID = "file.new-window";
-
 function createStoreBackedOrchestrationRuntimeBridge(): OrchestrationRuntimeBridge {
   return {
     archiveChildThreads: async (ctx, threadIds) => {
@@ -288,8 +284,6 @@ function createTestExtensionContext(sessionRef: SessionRef): ExtensionToolContex
     executeTool: () => Promise.reject(new Error("Nested tool calls are not available in tests")),
   };
 }
-const OPEN_FOLDER_MENU_ITEM_ID = "file.open-folder";
-const CHECK_FOR_UPDATES_MENU_ITEM_ID = "app.check-for-updates";
 const QUIT_FLUSH_TIMEOUT_MS = 5_000;
 // Part of the quit budget above: renderers get this long to send their debounced drafts.
 const DRAFT_FLUSH_TIMEOUT_MS = 2_000;
@@ -311,9 +305,7 @@ function getTerminalService(): TerminalService {
 // Resolve the bundled application icon. In dev the repo's `resources/icon.png`
 // sits two levels up from the compiled `out/main/main.js`; in a packaged build
 // it is copied to `process.resourcesPath` via `extraResources` in
-// electron-builder.yml. On macOS packaged builds the window/dock icon already
-// comes from `icon.icns` in the app bundle, so we only need the PNG for dev
-// and for Linux/Windows window chrome.
+// electron-builder.yml. Linux and Windows both use the PNG for window chrome.
 const appIconPath = app.isPackaged
   ? path.join(process.resourcesPath, "icon.png")
   : path.join(__dirname, "..", "..", "resources", "icon.png");
@@ -486,7 +478,6 @@ function createWindow(): BrowserWindow {
     minWidth: 560,
     minHeight: 600,
     transparent: enableTransparency,
-    vibrancy: process.platform === "darwin" && enableTransparency ? "under-window" : undefined,
     ...windowChromeOptions(process.platform),
     backgroundColor: enableTransparency ? "#00000000" : currentWindowBackground(),
     show: false,
@@ -576,14 +567,14 @@ function createWindow(): BrowserWindow {
     // the tab hints up, and on Windows and Linux it would let the Alt release
     // open the hidden menu bar. The page takes no default action for these keys,
     // and the renderer's own handling of the same keydown is idempotent.
-    const sidePanelTabCommand = getSidePanelTabCommand(process.platform, input);
+    const sidePanelTabCommand = getSidePanelTabCommand(input);
     if (sidePanelTabCommand) {
       if (!input.isAutoRepeat) window.webContents.send(desktopIpc.appCommand, sidePanelTabCommand);
       return;
     }
 
     const lowerKey = input.key.toLowerCase();
-    const platformModifier = platformShortcutModifier(process.platform, input);
+    const platformModifier = platformShortcutModifier(input);
     const command = getDesktopCommandFromShortcut({
       modifier: platformModifier,
       alt: input.alt,
@@ -601,21 +592,12 @@ function createWindow(): BrowserWindow {
         shift: input.shift,
         key: input.key,
         code: input.code,
-        platform: process.platform,
       }) &&
       (terminalFocused || sidePanelFocusedWebContentsIds.has(webContentsId));
     if (terminalFocused) {
-      // Control chords belong to the shell, so only macOS Command chords open
-      // a palette or act on the thread from the terminal. New Tab stays with the
-      // terminal, which opens another shell.
-      if (
-        process.platform === "darwin" &&
-        isSinglePressCommand(command) &&
-        command !== desktopCommands.newSidePanelTab
-      ) {
-        event.preventDefault();
-        if (!input.isAutoRepeat) window.webContents.send(desktopIpc.appCommand, command);
-      } else if (command === desktopCommands.toggleSidePanel) {
+      // Control chords belong to the shell, and New Tab stays with the terminal,
+      // which opens another shell.
+      if (command === desktopCommands.toggleSidePanel) {
         event.preventDefault();
         window.webContents.send(desktopIpc.appCommand, command);
       } else if (closeFocusedSurface) {
@@ -836,103 +818,9 @@ async function runManualUpdateCheck(): Promise<void> {
   }
 }
 
-function installApplicationMenu(): void {
-  if (process.platform !== "darwin") {
-    return;
-  }
-
-  const template: MenuItemConstructorOptions[] = [
-    {
-      label: app.name,
-      submenu: [
-        { role: "about" },
-        { type: "separator" },
-        {
-          id: CHECK_FOR_UPDATES_MENU_ITEM_ID,
-          label: "Check for Updates…",
-          click: () => {
-            void runManualUpdateCheck().catch((error: unknown) => {
-              console.error("[main] runManualUpdateCheck failed", error);
-            });
-          },
-        },
-        { type: "separator" },
-        { role: "services" },
-        { type: "separator" },
-        { role: "hide" },
-        { role: "hideOthers" },
-        { role: "unhide" },
-        { type: "separator" },
-        { role: "quit" },
-      ],
-    },
-    {
-      label: "File",
-      submenu: [
-        {
-          label: "New Thread",
-          accelerator: "CommandOrControl+N",
-          click: () => {
-            const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
-            window?.webContents.send(desktopIpc.appCommand, desktopCommands.openNewThread);
-          },
-        },
-        {
-          id: NEW_WINDOW_MENU_ITEM_ID,
-          label: "New Window",
-          accelerator: "CommandOrControl+Shift+N",
-          click: () => {
-            createAppWindow(windowOwner.foregroundView());
-          },
-        },
-        { type: "separator" },
-        {
-          id: OPEN_FOLDER_MENU_ITEM_ID,
-          label: "Open Folder…",
-          accelerator: "Command+O",
-          click: () => {
-            void pickWorkspaceViaDialog(mainWindow).catch((error: unknown) => {
-              console.error("[main] pickWorkspaceViaDialog failed", error);
-            });
-          },
-        },
-        { type: "separator" },
-        { role: "close" },
-      ],
-    },
-    { role: "editMenu" },
-    {
-      label: "View",
-      submenu: [
-        // Cmd+R toggles Review and Shift+Cmd+R renames the thread, so neither
-        // reload has a shortcut.
-        {
-          label: "Reload",
-          click: () => BrowserWindow.getFocusedWindow()?.webContents.reload(),
-        },
-        {
-          label: "Force Reload",
-          click: () => BrowserWindow.getFocusedWindow()?.webContents.reloadIgnoringCache(),
-        },
-        { role: "toggleDevTools" },
-        { type: "separator" },
-        { role: "resetZoom" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
-        { type: "separator" },
-        { role: "togglefullscreen" },
-      ],
-    },
-    { role: "windowMenu" },
-  ];
-
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-}
-
-// Ensure npm (and other Homebrew/npm-global binaries) are available even when
-// pi-gui is launched via Finder/Dock (which hands the process a minimal PATH).
+// Ensure npm (and other npm-global binaries) are available even when pi-gui is
+// launched from a desktop launcher that hands the process a minimal PATH.
 // POSIX-only; on Windows the PATH is left untouched (see augmentPosixPath).
-// Tests that need an exact PATH (no gh, say, on a Mac runner whose Homebrew has one) opt out.
 const augmentedPath = augmentPosixPath();
 if (augmentedPath.changed && !(appTestMode && process.env.PI_APP_TEST_EXACT_PATH === "1")) {
   process.env.PATH = augmentedPath.path;
@@ -945,7 +833,6 @@ app.setPath("userData", configuredUserDataDir);
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
-  // app.quit() before ready can leave a windowless macOS process alive.
   // Duplicate instances have no store or windows, so exit immediately.
   app.exit(0);
 }
@@ -967,13 +854,6 @@ app
   .then(async () => {
     if (!hasSingleInstanceLock) {
       return;
-    }
-
-    // On macOS, packaged builds already render the dock icon from `icon.icns`
-    // in the app bundle. In dev we override the generic Electron dock icon with
-    // the real PNG so the running app looks right end-to-end.
-    if (process.platform === "darwin" && !app.isPackaged) {
-      app.dock?.setIcon(appIcon);
     }
 
     let generateThreadTitleOverride:
@@ -1090,7 +970,6 @@ app
         terminalService?.retainWorkspacePaths(workspacePaths);
       }
     });
-    installApplicationMenu();
     if (process.env.PI_APP_TEST_MODE) {
       Object.assign(globalThis, {
         __PI_APP_TEST_HOOKS: {
@@ -1212,16 +1091,7 @@ app
             sidePanelFocusedWebContentsIds.delete(webContentsId);
           }
         },
-        setTransparency: (enabled) => {
-          if (process.platform !== "darwin") {
-            return;
-          }
-          for (const window of windowOwner.allWindows()) {
-            if (!window.isDestroyed()) {
-              window.setVibrancy(enabled ? "under-window" : null);
-            }
-          }
-        },
+        setTransparency: () => {},
         pickComposerAttachments: async (window, existing = []) => {
           const parent = resolveDialogWindow(window);
           const result = parent
@@ -1276,23 +1146,18 @@ app
   });
 
 app.on("window-all-closed", () => {
-  // macOS normally keeps the app alive after its final window closes. The
-  // Electron harness closes windows to end each isolated run, so let explicit
-  // test-mode launches quit instead of leaving their process behind forever.
-  if (process.platform !== "darwin" || appTestMode !== undefined) {
-    stopNotifications?.();
-    stopNotifications = undefined;
-    notificationManager = undefined;
-    notificationPermissionService?.dispose();
-    notificationPermissionService = undefined;
-    stopUpdateChecker?.();
-    stopUpdateChecker = undefined;
-    stopPruningTerminals?.();
-    stopPruningTerminals = undefined;
-    terminalService?.dispose();
-    terminalService = undefined;
-    app.quit();
-  }
+  stopNotifications?.();
+  stopNotifications = undefined;
+  notificationManager = undefined;
+  notificationPermissionService?.dispose();
+  notificationPermissionService = undefined;
+  stopUpdateChecker?.();
+  stopUpdateChecker = undefined;
+  stopPruningTerminals?.();
+  stopPruningTerminals = undefined;
+  terminalService?.dispose();
+  terminalService = undefined;
+  app.quit();
 });
 
 app.on("before-quit", (event) => {
@@ -1519,7 +1384,7 @@ async function promptForText(
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    autoHideMenuBar: process.platform !== "darwin",
+    autoHideMenuBar: true,
     title: "pi-gui",
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
   });

@@ -239,7 +239,7 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
         return true;
       }
       if (
-        getSidePanelTabCommand(api.platform, {
+        getSidePanelTabCommand({
           meta: event.metaKey,
           control: event.ctrlKey,
           alt: event.altKey,
@@ -251,7 +251,7 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
         // Side panel tab chords switch tabs; the shell never sees them.
         return false;
       }
-      const commandModifier = api.platform === "darwin" ? event.metaKey : event.ctrlKey;
+      const commandModifier = event.ctrlKey;
       const key = event.key.toLowerCase();
       if (commandModifier && !event.shiftKey && key === "t") {
         void createTerminal().catch((error: unknown) => {
@@ -259,22 +259,13 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
         });
         return false;
       }
-      if (api.platform !== "darwin" && event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.ctrlKey && !event.metaKey && !event.altKey) {
         // Hand these chords back to the browser instead of letting xterm turn them into
         // control characters: paste (Ctrl+V on Windows, Ctrl+Shift+V on Linux, where
         // shells keep Ctrl+V) and Ctrl+J, which App's window listener routes to the terminal
         // toggle. Match the typed letter, not the physical key, so other layouts keep theirs.
         const pasteChord = api.platform === "win32" ? !event.shiftKey : event.shiftKey;
         if ((key === "v" && pasteChord) || (key === "j" && !event.shiftKey)) {
-          return false;
-        }
-      }
-      if (api.platform === "darwin" && event.metaKey) {
-        const sequence = macTerminalSequenceForEvent(event);
-        if (sequence) {
-          void api.writeTerminal(activeSession.id, sequence).catch((error: unknown) => {
-            setError(error instanceof Error ? error.message : String(error));
-          });
           return false;
         }
       }
@@ -416,21 +407,4 @@ function updateSession(
       session.id === terminalId ? update(session) : session,
     ),
   };
-}
-
-function macTerminalSequenceForEvent(event: KeyboardEvent): string | undefined {
-  switch (event.key) {
-    case "ArrowLeft":
-    case "ArrowUp":
-      return "\x01";
-    case "ArrowRight":
-    case "ArrowDown":
-      return "\x05";
-    case "Backspace":
-      return "\x15";
-    case "Delete":
-      return "\x0b";
-    default:
-      return undefined;
-  }
 }

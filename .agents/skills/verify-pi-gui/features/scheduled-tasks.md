@@ -14,8 +14,8 @@ Users create local on-device schedules from the Scheduled sidebar, a thread menu
 
 - Click Scheduled in the sidebar.
 - Click Create, then Set up manually or Create with pi.
-- From a thread, open the thread-actions menu (header Thread actions button, right-click the row, or Cmd-K) and choose Add scheduled task… / Edit scheduled task….
-- Cmd-K also lists a Scheduled tasks entry.
+- From a thread, open the thread-actions menu (header Thread actions button, right-click the row, or Ctrl+K) and choose Add scheduled task… / Edit scheduled task….
+- Ctrl+K also lists a Scheduled tasks entry.
 
 ## Driving it with Playwright
 

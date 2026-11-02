@@ -6,6 +6,16 @@ import {
   isCloseFocusedSurfaceShortcut,
 } from "../../contracts/ipc";
 
+const closeChord = (held: Partial<Record<"meta" | "control" | "alt" | "shift", boolean>>) => ({
+  meta: false,
+  control: false,
+  alt: false,
+  shift: false,
+  key: "w",
+  code: "KeyW",
+  ...held,
+});
+
 test("maps Alt+B to the side panel and leaves plain B on the sidebar", () => {
   expect(
     getDesktopCommandFromShortcut({
@@ -49,9 +59,7 @@ test("maps Alt+B to the side panel and leaves plain B on the sidebar", () => {
   expect(
     getDesktopCommandFromShortcut({ modifier: true, shift: false, key: "r", code: "KeyR" }),
   ).toBe(desktopCommands.toggleReview);
-  expect(getSidePanelToggleShortcutLabel("darwin")).toBe("⌘⌥B");
-  expect(getSidePanelToggleShortcutLabel("linux")).toBe("Ctrl+Alt+B");
-  expect(getSidePanelToggleShortcutLabel("win32")).toBe("Ctrl+Alt+B");
+  expect(getSidePanelToggleShortcutLabel()).toBe("Ctrl+Alt+B");
   expect(
     getDesktopCommandFromShortcut({
       modifier: true,
@@ -63,82 +71,11 @@ test("maps Alt+B to the side panel and leaves plain B on the sidebar", () => {
   ).toBeUndefined();
 });
 
-test("maps platform Ctrl or Cmd+W to closing the focused surface", () => {
-  expect(
-    isCloseFocusedSurfaceShortcut({
-      meta: false,
-      control: true,
-      alt: false,
-      shift: false,
-      key: "w",
-      code: "KeyW",
-      platform: "linux",
-    }),
-  ).toBe(true);
-  expect(
-    isCloseFocusedSurfaceShortcut({
-      meta: false,
-      control: true,
-      alt: false,
-      shift: false,
-      key: "w",
-      code: "KeyW",
-      platform: "win32",
-    }),
-  ).toBe(true);
-  expect(
-    isCloseFocusedSurfaceShortcut({
-      meta: true,
-      control: false,
-      alt: false,
-      shift: false,
-      key: "w",
-      code: "KeyW",
-      platform: "darwin",
-    }),
-  ).toBe(true);
-  expect(
-    isCloseFocusedSurfaceShortcut({
-      meta: false,
-      control: true,
-      alt: false,
-      shift: false,
-      key: "w",
-      code: "KeyW",
-      platform: "darwin",
-    }),
-  ).toBe(false);
-  expect(
-    isCloseFocusedSurfaceShortcut({
-      meta: true,
-      control: true,
-      alt: false,
-      shift: false,
-      key: "w",
-      code: "KeyW",
-      platform: "linux",
-    }),
-  ).toBe(false);
-  expect(
-    isCloseFocusedSurfaceShortcut({
-      meta: false,
-      control: true,
-      alt: true,
-      shift: false,
-      key: "w",
-      code: "KeyW",
-      platform: "linux",
-    }),
-  ).toBe(false);
-  expect(
-    isCloseFocusedSurfaceShortcut({
-      meta: false,
-      control: true,
-      alt: false,
-      shift: true,
-      key: "w",
-      code: "KeyW",
-      platform: "linux",
-    }),
-  ).toBe(false);
+test("maps Control+W to closing the focused surface", () => {
+  expect(isCloseFocusedSurfaceShortcut(closeChord({ control: true }))).toBe(true);
+  // The Windows key or the Command modifier must not close a surface.
+  expect(isCloseFocusedSurfaceShortcut(closeChord({ meta: true }))).toBe(false);
+  expect(isCloseFocusedSurfaceShortcut(closeChord({ control: true, meta: true }))).toBe(false);
+  expect(isCloseFocusedSurfaceShortcut(closeChord({ control: true, alt: true }))).toBe(false);
+  expect(isCloseFocusedSurfaceShortcut(closeChord({ control: true, shift: true }))).toBe(false);
 });

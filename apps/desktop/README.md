@@ -2,7 +2,7 @@
 
 Codex-style Electron shell for `pi`, with Playwright E2E coverage organized by test lane.
 
-macOS is the primary desktop UI verification target. Pull-request CI runs the Core suite on Linux under Xvfb and pushes to `main` run it on macOS; Windows CI validates packaging only. The Linux run does not establish native macOS behavior.
+CI runs the Core suite on Linux under Xvfb on every change; Windows CI validates packaging. The Linux run does not establish native OS behavior.
 
 ## Setup
 
@@ -75,24 +75,13 @@ Use the smallest lane that matches the changed surface.
   ```
 
 - `native`
-  macOS OS-surface coverage such as folder pickers, image pickers, and real clipboard paste. This lane is foreground-only and can take focus.
+  OS-surface coverage such as image pickers and real clipboard paste. This lane is foreground-only and can take focus.
 
   ```bash
   pnpm --filter @pi-gui/desktop run test:e2e:native
   ```
 
-- `production`
-  Opt-in higher-fidelity smokes that stay out of the default fast lanes. Use these for real-auth `live` checks, packaged `.app` launch, and real macOS open-panel coverage.
-
-  ```bash
-  pnpm --filter @pi-gui/desktop run test:core:auth-contract
-  pnpm --filter @pi-gui/desktop run test:prod:packaged-smoke
-  pnpm --filter @pi-gui/desktop run test:prod:applications-relaunch
-  pnpm --filter @pi-gui/desktop run test:prod:release-zip-smoke
-  pnpm --filter @pi-gui/desktop run test:prod:open-folder-real
-  ```
-
-Run core, live, and native together (production, dev, and demo are separate):
+Run core, live, and native together (dev and demo are separate):
 
 ```bash
 pnpm --filter @pi-gui/desktop run test:e2e:all
@@ -112,7 +101,7 @@ The root commands own published marketing outputs:
   copied, into a private temporary directory, and that copy is deleted afterwards. If pi refreshes an OAuth
   token during the run, the refreshed token is not written back, so a provider that rotates refresh
   tokens may ask you to sign in again; an API key avoids that. Install Inter and
-  JetBrains Mono first so Linux captures match the macOS fonts.
+  JetBrains Mono first so Linux captures match the intended fonts.
 - `pnpm marketing:capture` writes the three Remotion inputs in
   `video/public/captures/`. The parallel-session capture starts two threads with initial prompts and
   requires both sessions to report `running` before recording or publishing the clip. The command
@@ -129,12 +118,6 @@ credentials and retains its profile, workspaces and raw recording under
 `.artifacts/marketing/product-media/`.
 Showcase capture writes an empty auth file, does not copy ambient credentials, and retains its
 synthetic profiles and frames under `.artifacts/marketing/showcase-captures/`.
-
-For the macOS Core run on `main`, use:
-
-```bash
-pnpm --filter @pi-gui/desktop run test:e2e:ci:mac
-```
 
 Linux CI also validates packaging via:
 
@@ -161,8 +144,6 @@ For a visible send/stream/tool/restart journey without injected assistant events
 - `core` and most `live` scripts set `PI_APP_TEST_MODE=background` for you. Agents normally should not set that env var manually.
 - `native` scripts set `PI_APP_TEST_MODE=foreground` for you and may steal focus.
 - If a native test fails, rerun it with a clean foreground window before assuming the product is broken.
-- Picker tests rely on macOS Accessibility/UI scripting. If folder or image picker automation cannot type into the dialog, check system Accessibility permissions first.
-- `production` open-panel coverage also relies on macOS Accessibility/UI scripting and should be run with the app kept frontmost.
 
 ## Playwright Vs Computer Use
 
@@ -170,12 +151,12 @@ Prefer the repo lanes first. They are deterministic, scriptable, and the right s
 
 - Use `core` when the behavior lives inside the Electron window and should stay background-friendly.
 - Use `live` for runtime integration; select and enable real-provider specs when the behavior depends on an actual model run.
-- Use `native` or `production` when the surface is a real macOS dialog, picker, clipboard path, installed `.app`, or packaged release artifact.
+- Use `native` when the surface is a real OS dialog, picker, or clipboard path.
 
 Use manual Computer Use smoke only as a complement, not a replacement.
 
 - The reason to use Computer Use is product confidence, not determinism. It is useful when you want to see the real installed app behave correctly while minimizing disruption to the laptop.
-- Keep Playwright as the primary regression signal. Computer Use should not replace lane coverage for `core`, `live`, `native`, or `production`, and it should not become a hidden repo dependency.
+- Keep Playwright as the primary regression signal. Computer Use should not replace lane coverage for `core`, `live`, or `native`, and it should not become a hidden repo dependency.
 - Treat real open-folder and native file-picker checks in Computer Use as best-effort smoke coverage unless the workflow is explicitly being validated there.
 
 ## Targeted Commands
@@ -189,13 +170,8 @@ pnpm --filter @pi-gui/desktop run test:core:worktrees
 pnpm --filter @pi-gui/desktop run test:core:persistence
 pnpm --filter @pi-gui/desktop run test:live:tool-calls
 pnpm --filter @pi-gui/desktop run test:native:paste
-pnpm --filter @pi-gui/desktop run test:native:open-folder
 pnpm --filter @pi-gui/desktop run test:core:attach-image
 pnpm --filter @pi-gui/desktop run test:core:auth-contract
-pnpm --filter @pi-gui/desktop run test:prod:packaged-smoke
-pnpm --filter @pi-gui/desktop run test:prod:applications-relaunch
-pnpm --filter @pi-gui/desktop run test:prod:release-zip-smoke
-pnpm --filter @pi-gui/desktop run test:prod:open-folder-real
 ```
 
 For real-auth `live` specs, opt in explicitly:
@@ -223,17 +199,12 @@ That spec launches the app in development mode, edits isolated probe modules for
 - Avoid direct IPC shortcuts for visible behavior unless the user surface does not exist yet. If you must use one, document why the surface gap exists.
 - `pasteTinyPng()` drives the renderer paste handler directly and is appropriate for background-safe coverage.
 - `pasteTinyPngViaClipboard()` writes an image to the Electron clipboard and presses the platform paste shortcut. It belongs in foreground/native coverage.
-- `tests/production/real-auth-contract.spec.ts` proves the default non-real-auth path still seeds a temporary fake-auth agent dir and keeps real-auth coverage opt-in.
-- `tests/production/packaged-smoke.spec.ts` proves the packaged `.app` bundle launches and can start a thread through the real UI.
-- `tests/production/applications-relaunch.spec.ts` proves an installed copy under `/Applications` launches and relaunches with persisted state.
-- `tests/production/release-zip-smoke.spec.ts` proves the packaged release ZIP can be extracted to a temp download-style path and launched through the real UI before publish.
-- `tests/production/open-folder-real.spec.ts` proves the real macOS open panel can add a workspace through the empty-state button.
+- `tests/core/real-auth-contract.spec.ts` proves the default non-real-auth path still seeds a temporary fake-auth agent dir and keeps real-auth coverage opt-in.
 
 ## Lane Map
 
 - `tests/core`: deterministic in-window behavior
 - `tests/live`: deterministic runtime integration and opt-in real-provider behavior
-- `tests/native`: macOS OS-surface behavior
-- `tests/production`: opt-in higher-fidelity smokes kept out of the default lane globs
+- `tests/native`: OS-surface behavior
 
 Future agents should start by reading this file, `apps/desktop/tests/AGENTS.md`, and the scripts in `apps/desktop/package.json`.

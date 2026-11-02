@@ -87,7 +87,7 @@ async function startDisplay(
     )
     .toBe(true);
   // Linux has no SF Pro. When Inter and JetBrains Mono are installed (fonts-inter,
-  // fonts-jetbrains-mono, or the user font dir), prefer them so captures resemble the macOS app.
+  // fonts-jetbrains-mono, or the user font dir), prefer them so captures resemble the app.
   const hasFamily = (family: string) =>
     execFileSync("fc-match", ["-f", "%{family}", family], { encoding: "utf8" }).startsWith(family);
   const prefer = (target: string, aliases: readonly string[]) =>

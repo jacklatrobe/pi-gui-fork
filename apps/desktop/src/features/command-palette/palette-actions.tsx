@@ -72,14 +72,14 @@ export interface PaletteActionContext {
 }
 
 export function buildPaletteActions(context: PaletteActionContext): readonly PaletteAction[] {
-  const { platform, thread } = context;
+  const { thread } = context;
   const actions: PaletteAction[] = [];
   if (context.hasWorkspace) {
     actions.push({
       id: "new-thread",
       title: "New thread",
       icon: <PlusIcon />,
-      hint: formatShortcut(platform, "N"),
+      hint: formatShortcut("N"),
       run: context.newThread,
     });
   }
@@ -95,7 +95,7 @@ export function buildPaletteActions(context: PaletteActionContext): readonly Pal
         id: "go-to-file",
         title: "Go to file…",
         icon: <FileIcon />,
-        hint: formatShortcut(platform, "P"),
+        hint: formatShortcut("P"),
         keepsOpen: true,
         run: () => context.openPaletteMode("files"),
       },
@@ -103,7 +103,7 @@ export function buildPaletteActions(context: PaletteActionContext): readonly Pal
         id: "find-in-thread",
         title: "Find in thread",
         icon: <SearchIcon />,
-        hint: formatShortcut(platform, "F"),
+        hint: formatShortcut("F"),
         run: context.findInThread,
       },
     );
@@ -121,7 +121,7 @@ export function buildPaletteActions(context: PaletteActionContext): readonly Pal
         id: `toggle-${kind}`,
         title: `Toggle ${label.toLowerCase()}`,
         icon: <Icon />,
-        hint: shortcutKey ? formatShortcut(platform, shortcutKey) : undefined,
+        hint: shortcutKey ? formatShortcut(shortcutKey) : undefined,
         run: () => context.toggleTool(kind),
       });
     }
@@ -129,7 +129,7 @@ export function buildPaletteActions(context: PaletteActionContext): readonly Pal
       id: "toggle-side-panel",
       title: "Toggle side panel",
       icon: <SidePanelIcon />,
-      hint: formatShortcut(platform, "B", { alt: true }),
+      hint: formatShortcut("B", { alt: true }),
       run: context.toggleSidePanel,
     });
     for (const view of context.extensionViews) {
@@ -147,7 +147,7 @@ export function buildPaletteActions(context: PaletteActionContext): readonly Pal
       id: "toggle-sidebar",
       title: "Toggle sidebar",
       icon: <SidebarToggleIcon />,
-      hint: formatShortcut(platform, "B"),
+      hint: formatShortcut("B"),
       run: context.toggleSidebar,
     });
   }
@@ -172,7 +172,7 @@ export function buildPaletteActions(context: PaletteActionContext): readonly Pal
     id: "settings",
     title: "Settings",
     icon: <SettingsIcon />,
-    hint: formatShortcut(platform, ","),
+    hint: formatShortcut(","),
     run: () => context.openSettings("general"),
   });
   for (const section of SETTINGS_SECTIONS) {

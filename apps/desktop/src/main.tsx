@@ -12,8 +12,7 @@ import "./styles.css";
 window.addEventListener(
   "keydown",
   (event) => {
-    // Control+digit on macOS selects a side panel tab, not a thread; main queues it.
-    const platform = window.piApp?.platform ?? "linux";
+    // Alt+digit selects a side panel tab, not a thread; main queues it.
     const chord = {
       meta: event.metaKey,
       control: event.ctrlKey,
@@ -22,7 +21,7 @@ window.addEventListener(
       key: event.key,
       code: event.code,
     };
-    if (getSidePanelTabCommand(platform, chord)) return;
+    if (getSidePanelTabCommand(chord)) return;
     earlyModifierChords.note({
       modifier: event.metaKey || event.ctrlKey,
       shift: event.shiftKey,

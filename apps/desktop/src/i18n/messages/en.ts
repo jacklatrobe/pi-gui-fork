@@ -208,33 +208,33 @@ export const en = {
   "settings.appearance.preset.vscode": "Familiar editor colours with blue accents.",
   "settings.notifications.groupSystem": "System",
   "settings.notifications.groupSystem.description":
-    "macOS decides whether pi-gui can show desktop notifications at all.",
-  "settings.notifications.access.title": "macOS notification access",
+    "Your system decides whether pi-gui can show desktop notifications at all.",
+  "settings.notifications.access.title": "Notification access",
   "settings.notifications.access.enabled": "Enabled",
   "settings.notifications.access.turnedOff": "Turned off",
   "settings.notifications.access.notEnabled": "Not enabled yet",
   "settings.notifications.access.unavailable": "Unavailable",
   "settings.notifications.access.checking": "Checking…",
   "settings.notifications.access.descriptionGranted":
-    "macOS will allow pi-gui to show desktop notifications for background thread updates.",
+    "Your system allows pi-gui to show desktop notifications for background thread updates.",
   "settings.notifications.access.descriptionDenied":
-    "macOS notifications are turned off for pi-gui. Enable them in System Settings to receive background completion alerts.",
+    "Notifications are turned off for pi-gui. Enable them in your system settings to receive background completion alerts.",
   "settings.notifications.access.descriptionDefault":
-    "pi-gui has not asked macOS for desktop notification access yet.",
+    "pi-gui has not asked for desktop notification access yet.",
   "settings.notifications.access.descriptionUnsupported":
     "Desktop notifications are unavailable on this system.",
   "settings.notifications.access.descriptionChecking":
-    "Checking whether macOS notifications are available for pi-gui.",
+    "Checking whether desktop notifications are available for pi-gui.",
   "settings.notifications.turnOn.title": "Turn on notifications",
   "settings.notifications.turnOn.descriptionAsk":
-    "pi-gui asks macOS when active work first moves into the background. You can also ask now.",
+    "pi-gui asks for permission when active work first moves into the background. You can also ask now.",
   "settings.notifications.turnOn.descriptionOpen":
-    "macOS notifications are already turned off for pi-gui. Open System Settings to enable them again.",
-  "settings.notifications.turnOn.ask": "Ask macOS",
-  "settings.notifications.turnOn.openSettings": "Open System Settings",
+    "Notifications are turned off for pi-gui. Open your system settings to enable them again.",
+  "settings.notifications.turnOn.ask": "Enable",
+  "settings.notifications.turnOn.openSettings": "Open system settings",
   "settings.notifications.groupInApp": "In-app alerts",
   "settings.notifications.groupInApp.description":
-    "Choose which background events should try to notify once macOS access is enabled.",
+    "Choose which background events should try to notify once access is enabled.",
   "settings.notifications.completion.title": "Background completion",
   "settings.notifications.completion.description": "Notify when a background session finishes.",
   "settings.notifications.failures.title": "Background failures",
