@@ -203,6 +203,23 @@
   margin-top: 8px;
 }
 
+/* Pause/Resume and Cancel task sit apart from the dialog's Cancel/Save pair. */
+.scheduled-editor__lifecycle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-right: auto;
+}
+
+.scheduled-editor__delete {
+  color: var(--error-ink);
+  border-color: color-mix(in srgb, var(--error-ink) 40%, var(--line));
+}
+
+.scheduled-editor__delete:hover:not(:disabled) {
+  border-color: var(--error-ink);
+}
+
 .scheduled-task-chip {
   display: flex;
   align-items: center;

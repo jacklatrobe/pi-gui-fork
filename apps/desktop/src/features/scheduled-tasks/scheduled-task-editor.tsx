@@ -37,6 +37,10 @@ interface ScheduledTaskEditorProps {
   readonly onClose: () => void;
   readonly onSubmit: (input: CreateScheduledTaskInput) => void;
   readonly onOpenChat?: (target: { workspaceId: string; sessionId: string }) => void;
+  /** Pause or resume the edited task. Edit mode only. */
+  readonly onSetStatus?: (status: "active" | "paused") => void;
+  /** Cancel (delete) the edited task. Edit mode only. */
+  readonly onCancelTask?: () => void;
 }
 
 function pad(value: number): string {
@@ -83,6 +87,8 @@ export function ScheduledTaskEditor({
   onClose,
   onSubmit,
   onOpenChat,
+  onSetStatus,
+  onCancelTask,
 }: ScheduledTaskEditorProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const source = editor.mode === "edit" ? task : undefined;
@@ -387,6 +393,44 @@ export function ScheduledTaskEditor({
         {error ? <p className="scheduled-editor__error">{error}</p> : null}
 
         <div className="scheduled-editor__actions">
+          {editor.mode === "edit" && source && (onSetStatus || onCancelTask) ? (
+            <div className="scheduled-editor__lifecycle">
+              {onSetStatus && source.status !== "completed" ? (
+                source.status === "paused" ? (
+                  <button
+                    className="button button--secondary"
+                    data-testid="scheduled-task-resume"
+                    disabled={busy}
+                    type="button"
+                    onClick={() => onSetStatus("active")}
+                  >
+                    Resume
+                  </button>
+                ) : (
+                  <button
+                    className="button button--secondary"
+                    data-testid="scheduled-task-pause"
+                    disabled={busy}
+                    type="button"
+                    onClick={() => onSetStatus("paused")}
+                  >
+                    Pause
+                  </button>
+                )
+              ) : null}
+              {onCancelTask ? (
+                <button
+                  className="button button--secondary scheduled-editor__delete"
+                  data-testid="scheduled-task-cancel"
+                  disabled={busy}
+                  type="button"
+                  onClick={onCancelTask}
+                >
+                  Cancel task
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           {openChatTarget && onOpenChat ? (
             <button
               className="button button--secondary"

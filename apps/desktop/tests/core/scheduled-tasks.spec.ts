@@ -65,6 +65,61 @@ test("manual create, tabs, pause, and restart keep scheduled tasks", async () =>
   }
 });
 
+test("the editor pauses, resumes, and cancels the open scheduled task", async () => {
+  test.setTimeout(60_000);
+  const userDataDir = await makeUserDataDir();
+  const workspacePath = await makeWorkspace("scheduled-editor-lifecycle");
+  const harness = await launchDesktop(userDataDir, {
+    initialWorkspaces: [workspacePath],
+    testMode: "background",
+  });
+  try {
+    const window = await harness.firstWindow();
+    await createNamedThread(window, "Lifecycle target");
+    const state = await getDesktopState(window);
+    await window.evaluate(
+      async (target) => {
+        const app = globalThis.window.piApp;
+        if (!app) {
+          throw new Error("piApp IPC bridge is unavailable");
+        }
+        await app.createScheduledTask({
+          title: "Lifecycle ping",
+          instruction: "Say ping",
+          schedule: { kind: "interval", everyMs: 60_000 },
+          target: { kind: "existing-thread", ...target },
+        });
+      },
+      { workspaceId: state.selectedWorkspaceId, sessionId: state.selectedSessionId },
+    );
+    await window.getByTestId("sidebar-scheduled").click();
+    await window.getByTestId("scheduled-task-row").click();
+    await expect(window.getByTestId("scheduled-task-editor")).toBeVisible();
+
+    // Pause leaves the dialog open and swaps Pause for Resume.
+    await window.getByTestId("scheduled-task-pause").click();
+    await expect
+      .poll(async () => (await getDesktopState(window)).scheduledTasks[0]?.status)
+      .toBe("paused");
+    await expect(window.getByTestId("scheduled-task-editor")).toBeVisible();
+    const resume = window.getByTestId("scheduled-task-resume");
+    await expect(resume).toBeVisible();
+    await resume.click();
+    await expect
+      .poll(async () => (await getDesktopState(window)).scheduledTasks[0]?.status)
+      .toBe("active");
+    await expect(window.getByTestId("scheduled-task-pause")).toBeVisible();
+
+    // Cancel removes the task and closes the dialog.
+    await window.getByTestId("scheduled-task-cancel").click();
+    await expect(window.getByTestId("scheduled-task-editor")).toHaveCount(0);
+    await expect.poll(async () => (await getDesktopState(window)).scheduledTasks).toHaveLength(0);
+    await expect(window.getByTestId("scheduled-task-row")).toHaveCount(0);
+  } finally {
+    await harness.close();
+  }
+});
+
 test("create with pi prefills the interview draft and does not send", async () => {
   test.setTimeout(60_000);
   const userDataDir = await makeUserDataDir();

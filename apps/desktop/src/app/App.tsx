@@ -4,7 +4,6 @@ import {
   getSelectedSession,
   getSelectedWorkspace,
   type AppView,
-  type CreateScheduledTaskInput,
 } from "../../contracts/desktop-state";
 import {
   nonCompletedBindingForSession,
@@ -71,6 +70,7 @@ import {
   type ScheduledEditorState,
 } from "../features/scheduled-tasks/scheduled-task-editor";
 import { ScheduledTaskChip } from "../features/scheduled-tasks/scheduled-task-chip";
+import { useScheduledTaskLifecycleActions } from "../features/scheduled-tasks/use-scheduled-task-lifecycle";
 import { useSlashMenu } from "../features/conversation/hooks/use-slash-menu";
 import { useMentionMenu } from "../features/conversation/hooks/use-mention-menu";
 import { useThreadSearch } from "../features/conversation/hooks/use-thread-search";
@@ -881,21 +881,14 @@ export default function App() {
     );
   };
 
-  const handleSubmitScheduledTask = (input: CreateScheduledTaskInput) => {
-    const action =
-      scheduledEditor?.mode === "edit"
-        ? () => api.updateScheduledTask(scheduledEditor.taskId, input)
-        : () => api.createScheduledTask(input);
-    void updateSnapshot(setSnapshot, action)
-      .then((state) => {
-        if (!state.lastError) {
-          setScheduledEditor(null);
-        }
-      })
-      .catch((error: unknown) => {
-        console.error("[renderer] save scheduled task failed", error);
-      });
-  };
+  const { handleSubmitScheduledTask, handleSetScheduledTaskStatus, handleCancelScheduledTask } =
+    useScheduledTaskLifecycleActions({
+      api,
+      updateSnapshot,
+      setSnapshot,
+      scheduledEditor,
+      setScheduledEditor,
+    });
 
   const handleOpenScheduledChat = (target: { workspaceId: string; sessionId: string }) => {
     setScheduledEditor(null);
@@ -1433,6 +1426,8 @@ export default function App() {
           onClose={() => setScheduledEditor(null)}
           onSubmit={handleSubmitScheduledTask}
           onOpenChat={handleOpenScheduledChat}
+          onSetStatus={handleSetScheduledTaskStatus}
+          onCancelTask={handleCancelScheduledTask}
         />
       ) : null}
       {threadSwitcher.state?.overlayVisible ? (
