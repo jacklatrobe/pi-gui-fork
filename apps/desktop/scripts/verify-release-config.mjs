@@ -57,7 +57,12 @@ function validateCiWorkflow(workflow) {
   );
 
   const linuxJob = workflow.jobs?.["desktop-package-linux"];
-  assert(linuxJob?.["runs-on"] === "ubuntu-latest", "Linux package CI must run on Ubuntu");
+  // Any Ubuntu image is acceptable: the AppImage toolset is pinned to a version
+  // that is broken on 26.04, so this job stays on ubuntu-24.04 for now.
+  assert(
+    typeof linuxJob?.["runs-on"] === "string" && linuxJob["runs-on"].startsWith("ubuntu"),
+    "Linux package CI must run on Ubuntu",
+  );
   assert(
     runText(stepNamed(linuxJob, "Verify Linux package configuration")).includes(
       "verify:release-config",

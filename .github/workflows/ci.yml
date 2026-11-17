@@ -226,7 +226,10 @@ jobs:
           if-no-files-found: error
 
   desktop-package-linux:
-    runs-on: ubuntu-latest
+    # electron-builder 26.8.1 pins appimage tools 1.0.2, whose mksquashfs fails on
+    # Ubuntu 26.04 (the current `ubuntu-latest`). Keep this job on 24.04 until the
+    # toolset is upgraded. See electron-userland/electron-builder#9598.
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v7
