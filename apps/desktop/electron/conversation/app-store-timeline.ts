@@ -22,6 +22,7 @@ import {
   listThreadsToolName,
   orchestrationToolNames,
   readThreadToolName,
+  renameThreadToolName,
   sendMessageToThreadToolName,
 } from "../orchestration/orchestration-runtime";
 
@@ -445,6 +446,9 @@ function toolLabel(toolName: string, input: unknown): string {
   }
   if (toolName === archiveChildThreadsToolName) {
     return "Archived child threads";
+  }
+  if (toolName === renameThreadToolName) {
+    return detail ? `Renamed thread: ${detail}` : "Renamed thread";
   }
   if (looksLikeSearch(toolName, input)) {
     return detail ? `Searched ${detail}` : `Searched with ${toolName}`;

@@ -23,7 +23,7 @@ async function selectedSessionRef(
   return { workspaceId: state.selectedWorkspaceId, sessionId: state.selectedSessionId };
 }
 
-test("create_child_thread returns after a slow worker starts, before its turn completes", async () => {
+test("create_child_thread returns after a slow worker starts, and the parent can name and rename it", async () => {
   test.setTimeout(60_000);
   const proofDir = process.env.PI_APP_ORCHESTRATION_PROOF_DIR?.trim();
   if (proofDir) {
@@ -104,16 +104,21 @@ test("create_child_thread returns after a slow worker starts, before its turn co
         toolName: "create_child_thread",
         toolCallId: "create-child-start-ack",
         sessionRef: parentRef,
-        params: { prompt },
+        params: { prompt, title: "Named worker" },
       }));
 
-    expect(result.details).toMatchObject({ deliveryStatus: "running", prompt });
+    expect(result.details).toMatchObject({
+      deliveryStatus: "running",
+      prompt,
+      title: "Named worker",
+    });
     // The worker's model request reached the server and is still unanswered.
     await expect.poll(() => server.pendingRequestCount()).toBeGreaterThan(0);
     const child = (await getDesktopState(window)).orchestrationChildren.find(
       (entry) => entry.sourceToolCallId === "create-child-start-ack",
     );
     expect(child?.status).toBe("running");
+    expect(child?.title).toBe("Named worker");
     expect(child?.transcript.length).toBeGreaterThan(0);
     const childRunningIndicator = window.locator(
       `.session-row[data-session-id="${child?.childSessionId}"] .session-row__status--running`,
@@ -180,6 +185,23 @@ test("create_child_thread returns after a slow worker starts, before its turn co
     const pushed = await pushes();
     expect(pushed.every((push) => push.transcriptRows === 0)).toBe(true);
     expect(pushed.at(-1)?.linkedChildIds).toContain(child?.childSessionId);
+    // A parent names its child after creation, even while the child is still running.
+    const renamed = await runOrchestrationRuntimeTool(harness, {
+      toolName: "rename_thread",
+      toolCallId: "rename-child",
+      sessionRef: parentRef,
+      params: { thread_id: child!.id, title: "Renamed worker" },
+    });
+    expect(renamed.details).toMatchObject({
+      action: "pi_gui_rename_thread",
+      title: "Renamed worker",
+      previousTitle: "Named worker",
+    });
+    await expect(nestedChildRow).toContainText("Renamed worker");
+    expect(
+      (await getDesktopState(window)).orchestrationChildren.find((entry) => entry.id === child!.id)
+        ?.title,
+    ).toBe("Renamed worker");
     if (proofDir) {
       await window.screenshot({
         path: join(proofDir, "orchestration-child-running.png"),

@@ -22,6 +22,8 @@ export const sendMessageToThreadToolName = "send_message_to_thread";
 export const sendMessageToThreadAction = "pi_gui_send_message_to_thread";
 export const archiveChildThreadsToolName = "archive_child_threads";
 export const archiveChildThreadsAction = "pi_gui_archive_child_threads";
+export const renameThreadToolName = "rename_thread";
+export const renameThreadAction = "pi_gui_rename_thread";
 
 /** Every pi-gui thread tool. Their names are not file or search tools, whatever they contain. */
 export const orchestrationToolNames: ReadonlySet<string> = new Set([
@@ -32,6 +34,7 @@ export const orchestrationToolNames: ReadonlySet<string> = new Set([
   readThreadToolName,
   sendMessageToThreadToolName,
   archiveChildThreadsToolName,
+  renameThreadToolName,
 ]);
 
 export interface ArchiveChildThreadsToolDetails {
@@ -65,6 +68,16 @@ export interface SubagentToolDetails {
   readonly status?: "running" | "completed" | "failed";
   /** The child's final assistant text, present only for a foreground call. */
   readonly reply?: string;
+  readonly error?: string;
+}
+
+export interface RenameThreadToolDetails {
+  readonly action: typeof renameThreadAction;
+  readonly threadId: string;
+  /** The new title once the rename succeeds. */
+  readonly title?: string;
+  /** The title before the rename, for undo context. */
+  readonly previousTitle?: string;
   readonly error?: string;
 }
 
@@ -151,7 +164,12 @@ export interface OrchestrationRuntimeBridge {
   ) => Promise<AgentToolResult<ArchiveChildThreadsToolDetails>>;
   readonly createChildThread: (
     ctx: ExtensionContext,
-    input: { readonly prompt: string; readonly toolCallId: string; readonly agentName?: string },
+    input: {
+      readonly prompt: string;
+      readonly toolCallId: string;
+      readonly agentName?: string;
+      readonly title?: string;
+    },
   ) => Promise<AgentToolResult<CreateChildThreadToolDetails>>;
   readonly listAgents: (ctx: ExtensionContext) => Promise<AgentToolResult<ListAgentsToolDetails>>;
   readonly runSubagent: (
@@ -161,8 +179,13 @@ export interface OrchestrationRuntimeBridge {
       readonly task: string;
       readonly foreground: boolean;
       readonly toolCallId: string;
+      readonly title?: string;
     },
   ) => Promise<AgentToolResult<SubagentToolDetails>>;
+  readonly renameThread: (
+    ctx: ExtensionContext,
+    input: { readonly threadId: string; readonly title: string },
+  ) => Promise<AgentToolResult<RenameThreadToolDetails>>;
   readonly listThreads: (
     ctx: ExtensionContext,
     input: { readonly workspace?: string },
@@ -184,7 +207,8 @@ type OrchestrationToolDetails =
   | ListThreadsToolDetails
   | SubagentToolDetails
   | ReadThreadToolDetails
-  | SendMessageToThreadToolDetails;
+  | SendMessageToThreadToolDetails
+  | RenameThreadToolDetails;
 
 function createCreateChildThreadTool(
   bridge: OrchestrationRuntimeBridge,
@@ -213,6 +237,11 @@ function createCreateChildThreadTool(
           description:
             "Optional agent identity name from list_agents, such as scout, worker or reviewer.",
         },
+        title: {
+          type: "string",
+          description:
+            "Optional thread name. Defaults to a name derived from the prompt. Rename later with rename_thread.",
+        },
       },
       required: ["prompt"],
     },
@@ -222,10 +251,12 @@ function createCreateChildThreadTool(
         throw new Error("create_child_thread requires a non-empty prompt.");
       }
       const agentName = isRecord(params) ? stringParam(params, "agent") : undefined;
+      const title = isRecord(params) ? stringParam(params, "title") : undefined;
       return bridge.createChildThread(ctx, {
         prompt,
         toolCallId,
         ...(agentName ? { agentName } : {}),
+        ...(title ? { title } : {}),
       });
     },
   };
@@ -296,6 +327,11 @@ function createSubagentTool(
           type: "boolean",
           description: "Default true: return the thread id without waiting for the reply.",
         },
+        title: {
+          type: "string",
+          description:
+            "Optional thread name. Defaults to a name derived from the task. Rename later with rename_thread.",
+        },
       },
     },
     async execute(toolCallId, params, _signal, _onUpdate, ctx) {
@@ -311,11 +347,13 @@ function createSubagentTool(
         };
       }
       const agent = stringParam(record, "agent");
+      const title = stringParam(record, "title");
       return bridge.runSubagent(ctx, {
         task,
         foreground: record.async === false,
         toolCallId,
         ...(agent ? { agent } : {}),
+        ...(title ? { title } : {}),
       });
     },
   };
@@ -498,6 +536,54 @@ function createArchiveChildThreadsTool(
   };
 }
 
+function createRenameThreadTool(
+  bridge: OrchestrationRuntimeBridge,
+): ToolDefinition<any, OrchestrationToolDetails> {
+  return {
+    name: renameThreadToolName,
+    label: "Rename thread",
+    description:
+      "Rename a pi-gui child thread this thread created, so the sidebar shows a clear name.",
+    promptSnippet: "rename_thread: rename a child thread you created (thread_id + title).",
+    promptGuidelines: [
+      "Use rename_thread when a child thread should read as something other than its auto-derived name.",
+      "Pass the exact thread id from create_child_thread, subagent, or list_threads.",
+    ],
+    parameters: {
+      type: "object",
+      properties: {
+        thread_id: {
+          type: "string",
+          description: "Exact child thread id from create_child_thread, subagent or list_threads.",
+        },
+        title: {
+          type: "string",
+          description: "The new thread name.",
+        },
+      },
+      required: ["thread_id", "title"],
+    },
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const record = isRecord(params) ? params : {};
+      const threadId = threadIdFromParams(record);
+      const title = stringParam(record, "title");
+      if (!threadId || !title) {
+        return {
+          content: [
+            { type: "text", text: "rename_thread requires a thread_id and a non-empty title." },
+          ],
+          details: {
+            action: renameThreadAction,
+            threadId: threadId ?? "",
+            error: "rename_thread requires a thread_id and a non-empty title.",
+          },
+        };
+      }
+      return bridge.renameThread(ctx, { threadId, title });
+    },
+  };
+}
+
 export function createOrchestrationRuntimeTools(
   bridge: OrchestrationRuntimeBridge,
 ): readonly ToolDefinition<any, OrchestrationToolDetails>[] {
@@ -509,6 +595,7 @@ export function createOrchestrationRuntimeTools(
     createReadThreadTool(bridge),
     createSendMessageToThreadTool(bridge),
     createArchiveChildThreadsTool(bridge),
+    createRenameThreadTool(bridge),
   ];
 }
 
@@ -547,6 +634,15 @@ export function createChildThreadAgentFromToolOutput(output: unknown): string | 
     return undefined;
   }
   return stringParam(details, "agent");
+}
+
+/** The title a finished create_child_thread call carries, when it has one. */
+export function createChildThreadTitleFromToolOutput(output: unknown): string | undefined {
+  const details = toolOutputDetails(output);
+  if (details?.action !== createChildThreadAction) {
+    return undefined;
+  }
+  return stringParam(details, "title");
 }
 
 export function listThreadsRequestedFromToolOutput(output: unknown): boolean {

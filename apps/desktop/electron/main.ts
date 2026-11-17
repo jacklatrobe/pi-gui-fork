@@ -214,6 +214,10 @@ function createStoreBackedOrchestrationRuntimeBridge(): OrchestrationRuntimeBrid
       await store.initialize();
       return store.sendMessageToThreadToolResult(sessionRefFromExtensionContext(ctx), input);
     },
+    renameThread: async (ctx, input) => {
+      await store.initialize();
+      return store.renameThreadToolResult(sessionRefFromExtensionContext(ctx), input);
+    },
   };
 }
 

@@ -38,6 +38,7 @@ import {
   createChildThreadAction,
   createChildThreadAgentFromToolOutput,
   createChildThreadPromptFromToolOutput,
+  createChildThreadTitleFromToolOutput,
   createChildThreadToolName,
   listAgentsAction,
   listThreadsAction,
@@ -47,6 +48,8 @@ import {
   readThreadAction,
   readThreadIdFromToolOutput,
   readThreadToolName,
+  renameThreadAction,
+  renameThreadToolName,
   sendMessageToThreadAction,
   sendMessageToThreadFromToolOutput,
   sendMessageToThreadToolName,
@@ -59,10 +62,13 @@ import type {
   SubagentToolDetails,
   OrchestrationThreadListEntry,
   ReadThreadToolDetails,
+  RenameThreadToolDetails,
   SendMessageToThreadToolDetails,
 } from "./orchestration-runtime";
 
 const CHILD_TITLE_LIMIT = 56;
+/** Explicit thread names may be longer than the derived prompt preview. */
+const THREAD_TITLE_LIMIT = 120;
 const MAX_CHILD_TRANSCRIPT_MESSAGES = 40;
 const MAX_READ_THREAD_MESSAGES = 60;
 /** How many threads list_threads returns for `workspace: "*"`, most relevant first. */
@@ -82,7 +88,10 @@ interface OrchestrationStateView {
   readonly orchestrationChildren: readonly OrchestrationChildThread[];
 }
 
-type OrchestrationDriver = Pick<PiSdkDriver, "cancelCurrentRun" | "createSession">;
+type OrchestrationDriver = Pick<
+  PiSdkDriver,
+  "cancelCurrentRun" | "createSession" | "renameSession"
+>;
 
 interface OrchestrationOwnerHost {
   readonly driver: OrchestrationDriver;
@@ -122,6 +131,8 @@ interface OrchestrationOwnerHost {
     listener: (event: SessionDriverEvent, state: DesktopAppState) => void | Promise<void>,
   ): () => void;
   updateSessionConfig(sessionRef: SessionRef, config: SessionConfig | undefined): void;
+  /** Forget a session's pending auto title so a manual rename sticks. */
+  clearPendingAutoTitle(sessionRef: SessionRef): void;
   buildCreateSessionOptions(workspaceId: string): Promise<CreateSessionOptions | undefined>;
   /** Resolve a chosen agent identity for a workspace, or undefined when it no longer exists. */
   resolveAgentIdentity(
@@ -180,7 +191,12 @@ export interface OrchestrationOwner {
   hasOrchestrationParentSession(sessionRef: SessionRef): boolean;
   createChildThreadToolResult(
     parentRef: SessionRef,
-    input: { readonly prompt: string; readonly toolCallId: string; readonly agentName?: string },
+    input: {
+      readonly prompt: string;
+      readonly toolCallId: string;
+      readonly agentName?: string;
+      readonly title?: string;
+    },
   ): Promise<AgentToolResult<CreateChildThreadToolDetails>>;
   listAgentsToolResult(parentRef: SessionRef): Promise<AgentToolResult<ListAgentsToolDetails>>;
   subagentToolResult(
@@ -190,6 +206,7 @@ export interface OrchestrationOwner {
       readonly task: string;
       readonly foreground: boolean;
       readonly toolCallId: string;
+      readonly title?: string;
     },
   ): Promise<AgentToolResult<SubagentToolDetails>>;
   listThreadsToolResult(
@@ -204,6 +221,10 @@ export interface OrchestrationOwner {
     parentRef: SessionRef,
     input: { readonly threadId: string; readonly message: string },
   ): Promise<AgentToolResult<SendMessageToThreadToolDetails>>;
+  renameThreadToolResult(
+    parentRef: SessionRef,
+    input: { readonly threadId: string; readonly title: string },
+  ): Promise<AgentToolResult<RenameThreadToolDetails>>;
 }
 
 export function createOrchestrationOwner(store: OrchestrationOwnerHost): OrchestrationOwner {
@@ -234,6 +255,7 @@ export function createOrchestrationOwner(store: OrchestrationOwnerHost): Orchest
     readThreadToolResult: (parentRef, threadId) => readThreadToolResult(store, parentRef, threadId),
     sendMessageToThreadToolResult: (parentRef, input) =>
       sendMessageToThreadToolResult(store, parentRef, input),
+    renameThreadToolResult: (parentRef, input) => renameThreadToolResult(store, parentRef, input),
   };
 }
 
@@ -244,6 +266,8 @@ interface SpawnChildThreadInput {
   readonly sourceToolCallId?: string;
   /** Agent identity the child thread should run as, when the caller named one. */
   readonly agentName?: string;
+  /** Explicit thread name from the caller; falls back to the prompt. */
+  readonly title?: string;
 }
 
 interface CreatedChildThreadResult {
@@ -301,9 +325,10 @@ async function createChildThreadRecord(
   }
   try {
     const createOptions = await store.buildCreateSessionOptions(input.parentWorkspaceId);
+    const title = threadTitleFromInput(input.title, prompt);
     const session = await store.driver.createSession(workspace, {
       ...createOptions,
-      title: titleFromPrompt(prompt),
+      title,
       ...(agent ? { agent } : {}),
     });
     const childRef = session.ref;
@@ -320,7 +345,7 @@ async function createChildThreadRecord(
       parentSessionId: input.parentSessionId,
       childWorkspaceId: childRef.workspaceId,
       childSessionId: childRef.sessionId,
-      title: session.title || titleFromPrompt(prompt),
+      title: session.title || title,
       goal: prompt,
       status,
       latestTranscript: session.preview || prompt,
@@ -411,6 +436,7 @@ async function handleCreateChildThreadToolResult(
     return false;
   }
   const agentName = createChildThreadAgentFromToolOutput(event.output);
+  const explicitTitle = createChildThreadTitleFromToolOutput(event.output);
 
   let deliveryStatus: CreatedChildThreadResult["deliveryStatus"];
   try {
@@ -420,6 +446,7 @@ async function handleCreateChildThreadToolResult(
       prompt,
       sourceToolCallId: event.callId,
       ...(agentName ? { agentName } : {}),
+      ...(explicitTitle ? { title: explicitTitle } : {}),
     });
     deliveryStatus = result.deliveryStatus;
   } catch (error) {
@@ -477,6 +504,15 @@ async function handleOrchestrationThreadToolResult(
 
   if (tool.toolName === sendMessageToThreadToolName) {
     await updateSendMessageToThreadToolOutput(store, event);
+    refreshParentOrchestrationEvidence(store, event.sessionRef);
+    return true;
+  }
+
+  if (tool.toolName === renameThreadToolName) {
+    const finalOutput = finalThreadToolProjectionFromOutput(event.output);
+    if (finalOutput) {
+      updateThreadToolOutput(store, event, finalOutput);
+    }
     refreshParentOrchestrationEvidence(store, event.sessionRef);
     return true;
   }
@@ -585,7 +621,12 @@ async function cancelChildRunsForParent(
 async function createChildThreadToolResult(
   store: OrchestrationOwnerHost,
   parentRef: SessionRef,
-  input: { readonly prompt: string; readonly toolCallId: string; readonly agentName?: string },
+  input: {
+    readonly prompt: string;
+    readonly toolCallId: string;
+    readonly agentName?: string;
+    readonly title?: string;
+  },
 ): Promise<AgentToolResult<CreateChildThreadToolDetails>> {
   const { child, deliveryStatus } = await createChildThreadRecord(store, {
     parentWorkspaceId: parentRef.workspaceId,
@@ -593,6 +634,7 @@ async function createChildThreadToolResult(
     prompt: input.prompt,
     sourceToolCallId: input.toolCallId,
     ...(input.agentName ? { agentName: input.agentName } : {}),
+    ...(input.title ? { title: input.title } : {}),
   });
   const details: CreateChildThreadToolDetails = {
     action: createChildThreadAction,
@@ -720,11 +762,116 @@ async function archiveChildThreadsToolResult(
   };
 }
 
-/** Resolves an id only among the caller's own children, never the UI selection. */
+async function renameThreadToolResult(
+  store: OrchestrationOwnerHost,
+  parentRef: SessionRef,
+  input: { readonly threadId: string; readonly title: string },
+): Promise<AgentToolResult<RenameThreadToolDetails>> {
+  await store.initialize();
+  const title = input.title.replace(/\s+/g, " ").trim();
+  if (!title) {
+    return renameThreadErrorResult(input.threadId, "", "rename_thread requires a non-empty title.");
+  }
+  if (title.length > THREAD_TITLE_LIMIT) {
+    return renameThreadErrorResult(
+      input.threadId,
+      title,
+      `Thread title must be ${THREAD_TITLE_LIMIT} characters or fewer.`,
+    );
+  }
+
+  let child: OrchestrationChildThread;
+  try {
+    child = ownDirectChild(store, parentRef, input.threadId, "renamed");
+  } catch (error) {
+    return renameThreadErrorResult(input.threadId, title, errorMessage(error));
+  }
+  if (!child.childSessionId) {
+    return renameThreadErrorResult(
+      input.threadId,
+      title,
+      "Legacy child thread records are read-only.",
+    );
+  }
+
+  const ref = childSessionRef(child);
+  const session = store.sessionFromState(ref);
+  if (!session) {
+    return renameThreadErrorResult(
+      input.threadId,
+      title,
+      "Child thread session is no longer available.",
+    );
+  }
+  const previousTitle = child.title || session.title || input.threadId;
+
+  try {
+    store.clearPendingAutoTitle(ref);
+    await store.driver.renameSession(ref, title);
+  } catch (error) {
+    return renameThreadErrorResult(input.threadId, title, errorMessage(error));
+  }
+
+  const now = new Date().toISOString();
+  store.replaceOrchestrationChildren(
+    store
+      .orchestrationState()
+      .orchestrationChildren.map((entry) =>
+        entry.id === child.id ? { ...entry, title, updatedAt: now } : entry,
+      ),
+  );
+  await store.refreshState({
+    selectedWorkspaceId: parentRef.workspaceId,
+    selectedSessionId: parentRef.sessionId,
+    clearLastError: true,
+    emitState: false,
+    persistState: false,
+    publishSelectedTranscript: false,
+  });
+  await store.persistUiState();
+
+  const details: RenameThreadToolDetails = {
+    action: renameThreadAction,
+    threadId: input.threadId,
+    title,
+    previousTitle,
+  };
+  return {
+    content: [{ type: "text", text: formatRenameThreadResult(details) }],
+    details,
+  };
+}
+
+function renameThreadErrorResult(
+  threadId: string,
+  title: string,
+  error: string,
+): AgentToolResult<RenameThreadToolDetails> {
+  return {
+    content: [{ type: "text", text: error }],
+    details: {
+      action: renameThreadAction,
+      threadId,
+      ...(title ? { title } : {}),
+      error,
+    },
+  };
+}
+
+function formatRenameThreadResult(result: RenameThreadToolDetails): string {
+  const previous = result.previousTitle ? ` (was "${result.previousTitle}")` : "";
+  return `Renamed thread ${result.threadId}${previous} to "${result.title ?? ""}".`;
+}
+
+/**
+ * Resolves an id only among the caller's own children, never the UI selection.
+ * `action` names the verb in the refusal so archive and rename read correctly.
+ */
 function ownDirectChild(
   store: OrchestrationOwnerHost,
   parentRef: SessionRef,
   threadId: string,
+  action = "archived",
 ): OrchestrationChildThread {
   const child = store
     .orchestrationChildren()
@@ -737,7 +884,7 @@ function ownDirectChild(
           sessionKey(childSessionRef(entry)) === threadId),
     );
   if (!child || sessionKey(childSessionRef(child)) === sessionKey(parentRef)) {
-    throw new Error("Only direct child threads of this thread can be archived.");
+    throw new Error(`Only direct child threads of this thread can be ${action}.`);
   }
   return child;
 }
@@ -843,6 +990,7 @@ async function subagentToolResult(
     readonly task: string;
     readonly foreground: boolean;
     readonly toolCallId: string;
+    readonly title?: string;
   },
 ): Promise<AgentToolResult<SubagentToolDetails>> {
   const { child, deliveryStatus } = await createChildThreadRecord(store, {
@@ -851,6 +999,7 @@ async function subagentToolResult(
     prompt: input.task,
     sourceToolCallId: input.toolCallId,
     ...(input.agent ? { agentName: input.agent } : {}),
+    ...(input.title ? { title: input.title } : {}),
   });
   const base = {
     action: subagentAction,
@@ -1753,6 +1902,7 @@ function projectionFromToolResult(
     | ListThreadsToolDetails
     | ReadThreadToolDetails
     | SendMessageToThreadToolDetails
+    | RenameThreadToolDetails
   >,
 ): {
   readonly detail: string;
@@ -1804,6 +1954,9 @@ function isFinalThreadToolDetails(details: Record<string, unknown>): boolean {
   if (details.action === sendMessageToThreadAction) {
     return details.status === "queued" || details.status === "sent";
   }
+  if (details.action === renameThreadAction) {
+    return typeof details.title === "string";
+  }
   return false;
 }
 
@@ -1836,6 +1989,10 @@ function detailFromThreadToolDetails(details: Readonly<Record<string, unknown>>)
   if (details.action === sendMessageToThreadAction) {
     const verb = details.status === "queued" ? "Queued" : "Sent";
     return `${verb} message to thread: ${typeof details.threadId === "string" ? details.threadId : "unknown"}`;
+  }
+  if (details.action === renameThreadAction) {
+    const title = typeof details.title === "string" ? details.title : "unknown";
+    return `Renamed thread: ${title}`;
   }
   return "Thread tool result";
 }
@@ -2654,4 +2811,19 @@ function titleFromPrompt(prompt: string): string {
     return normalized;
   }
   return `${normalized.slice(0, CHILD_TITLE_LIMIT - 3).trimEnd()}...`;
+}
+
+/**
+ * A child thread's title: the caller's explicit name when it has one, otherwise the
+ * prompt. Explicit names allow more room than the auto-derived prompt preview.
+ */
+function threadTitleFromInput(title: string | undefined, prompt: string): string {
+  const normalized = (title ?? "").replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return titleFromPrompt(prompt);
+  }
+  if (normalized.length <= THREAD_TITLE_LIMIT) {
+    return normalized;
+  }
+  return `${normalized.slice(0, THREAD_TITLE_LIMIT - 3).trimEnd()}...`;
 }

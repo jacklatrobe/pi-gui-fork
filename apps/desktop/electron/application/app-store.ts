@@ -523,6 +523,7 @@ export class DesktopAppStore {
       ensureSessionSubscription: (sessionRef) => this.ensureSessionSubscription(sessionRef),
       subscribeToSessionEvents: (listener) => this.subscribeToSessionEvents(listener),
       updateSessionConfig: (sessionRef, config) => this.updateSessionConfig(sessionRef, config),
+      clearPendingAutoTitle: (sessionRef) => this.clearPendingAutoTitle(sessionRef),
       buildCreateSessionOptions: (workspaceId) => this.buildCreateSessionOptions(workspaceId),
       resolveAgentIdentity: (workspaceId, name) => this.resolveAgentIdentity(workspaceId, name),
       listAgentIdentities: (workspaceId) => this.listAgentIdentities(workspaceId),
@@ -1325,7 +1326,12 @@ export class DesktopAppStore {
 
   async createChildThreadToolResult(
     parentRef: SessionRef,
-    input: { readonly prompt: string; readonly toolCallId: string; readonly agentName?: string },
+    input: {
+      readonly prompt: string;
+      readonly toolCallId: string;
+      readonly agentName?: string;
+      readonly title?: string;
+    },
   ) {
     await this.initialize();
     return this.orchestrationOwner.createChildThreadToolResult(parentRef, input);
@@ -1343,6 +1349,7 @@ export class DesktopAppStore {
       readonly task: string;
       readonly foreground: boolean;
       readonly toolCallId: string;
+      readonly title?: string;
     },
   ) {
     await this.initialize();
@@ -1369,6 +1376,14 @@ export class DesktopAppStore {
   ) {
     await this.initialize();
     return this.orchestrationOwner.sendMessageToThreadToolResult(parentRef, input);
+  }
+
+  async renameThreadToolResult(
+    parentRef: SessionRef,
+    input: { readonly threadId: string; readonly title: string },
+  ) {
+    await this.initialize();
+    return this.orchestrationOwner.renameThreadToolResult(parentRef, input);
   }
 
   async setChildSupervisionLoop(input: SetChildSupervisionLoopInput): Promise<DesktopAppState> {
